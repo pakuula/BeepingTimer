@@ -27,18 +27,21 @@ import androidx.compose.foundation.layout.fillMaxWidth
 
 // Таймерная модель
 data class TimerPreset(
-    val title: String,
-    val secondsPerRep: Int,
-    val reps: Int,
-    val restSeconds: Int,
-    val sets: Int
+    val title: String, // Название пресета
+    // Параметры таймера
+    val secondsPerRep: Int, // Время на одно повторение в секундах
+    val reps: Int, // Количество повторений
+    val restSeconds: Int, // Время отдыха между повторениями в секундах
+    val sets: Int, // Количество подходов
+    val prepTime: Int = 7 // Время подготовки по умолчанию
 )
 
 val timerPresets = listOf(
     TimerPreset("6 сек/8 повторов/50 сек/4 подхода", 6, 8, 50, 4),
     TimerPreset("8 сек/6 повторов/50 сек/4 подхода", 8, 6, 50, 4),
     TimerPreset("6 сек/8 повторов/8 сек/8 подходов", 6, 8, 8, 8),
-    TimerPreset("8 сек/6 повторов/8 сек/8 подходов", 8, 6, 8, 8)
+    TimerPreset("8 сек/6 повторов/8 сек/8 подходов", 8, 6, 8, 8),
+    TimerPreset("2 сек/1 повтор/2 сек/2 подхода", 2, 1, 2, 2)
 )
 
 @Composable
@@ -77,6 +80,7 @@ class MainActivity : ComponentActivity() {
                             putExtra("reps", preset.reps)
                             putExtra("restSeconds", preset.restSeconds)
                             putExtra("sets", preset.sets)
+                            putExtra("prepTime", preset.prepTime)
                         }
                         startActivity(intent)
                     }

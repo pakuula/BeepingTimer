@@ -6,7 +6,6 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Button
@@ -19,22 +18,24 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.myapplication.ui.theme.MyApplicationTheme
-import androidx.compose.ui.input.pointer.pointerInput
 
 class ExerciseActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         val secondsPerRep = intent.getIntExtra("secondsPerRep", 6)
         val reps = intent.getIntExtra("reps", 8)
         val restSeconds = intent.getIntExtra("restSeconds", 50)
         val sets = intent.getIntExtra("sets", 4)
+        val prepTime = intent.getIntExtra("prepTime", 7)
         setContent {
             MyApplicationTheme {
                 ExerciseScreen(
                     secondsPerRep = secondsPerRep,
                     reps = reps,
                     restSeconds = restSeconds,
-                    sets = sets
+                    sets = sets,
+                    prepTime = prepTime
                 )
             }
         }
@@ -57,10 +58,20 @@ suspend fun doExercise(
         while (timeLeft > 0) {
             // Двойной бип в начале повторения
             if (timeLeft == secondsPerRep) {
-                repeat(2) { toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 100); kotlinx.coroutines.delay(100) }
+                repeat(2) {
+                    toneGen.startTone(
+                        ToneGenerator.TONE_PROP_BEEP,
+                        100
+                    ); kotlinx.coroutines.delay(100)
+                }
             } else if (timeLeft == secondsPerRep / 2) {
                 // Двойной бип в середине повторения
-                repeat(2) { toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 100); kotlinx.coroutines.delay(100) }
+                repeat(2) {
+                    toneGen.startTone(
+                        ToneGenerator.TONE_PROP_BEEP,
+                        100
+                    ); kotlinx.coroutines.delay(100)
+                }
             } else {
                 // Обычный бип каждую секунду
                 toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 100)
@@ -79,7 +90,11 @@ suspend fun doExercise(
     onSetEnd()
 }
 
-suspend fun doPauseInExercise(isPaused: () -> Boolean, timeLeft: Int, onTimeLeftChange: (Int) -> Unit) {
+suspend fun doPauseInExercise(
+    isPaused: () -> Boolean,
+    timeLeft: Int,
+    onTimeLeftChange: (Int) -> Unit
+) {
     while (isPaused()) {
         onTimeLeftChange(timeLeft)
         kotlinx.coroutines.delay(100)
@@ -100,17 +115,19 @@ suspend fun doRest(
         onTimeLeftChange(timeLeft)
         kotlinx.coroutines.delay(1000)
         if (isPaused()) {
-            doPauseInRest(isPaused)
+            timeLeft = doPauseInRest(isPaused, timeLeft)
         }
         timeLeft--
         // Можно добавить сигналы для отдыха, если потребуется
     }
 }
 
-suspend fun doPauseInRest(isPaused: () -> Boolean) {
+suspend fun doPauseInRest(isPaused: () -> Boolean, timeLeft: Int): Int {
+    var currentTimeLeft = timeLeft
     while (isPaused()) {
         kotlinx.coroutines.delay(100)
     }
+    return currentTimeLeft
 }
 
 @Composable
@@ -118,21 +135,37 @@ fun ExerciseScreen(
     secondsPerRep: Int,
     reps: Int,
     restSeconds: Int,
-    sets: Int
+    sets: Int,
+    prepTime: Int
 ) {
+    var isPreparation by remember { mutableStateOf(true) }
+    var prepTimeLeft by remember { mutableStateOf(prepTime) }
     var currentSet by remember { mutableStateOf(1) }
     var currentRep by remember { mutableStateOf(1) }
     var isRest by remember { mutableStateOf(false) }
     var isPaused by remember { mutableStateOf(false) }
     var timeLeft by remember { mutableStateOf(secondsPerRep) }
+    var restTimeLeft by remember { mutableStateOf(restSeconds) }
     var finished by remember { mutableStateOf(false) }
-    val phaseColor = if (isRest) Color(0xFF90CAF9) else Color(0xFFA5D6A7)
+    val phaseColor = when {
+        isPreparation -> Color(0xFFFFF176) // жёлтый
+        isRest -> Color(0xFF90CAF9)
+        else -> Color(0xFFA5D6A7)
+    }
     val toneGen = remember { ToneGenerator(AudioManager.STREAM_MUSIC, 100) }
     val interactionSource = remember { MutableInteractionSource() }
 
-    LaunchedEffect(currentSet, isRest, isPaused, finished) {
+    LaunchedEffect(currentSet, isRest, isPaused, finished, isPreparation) {
         if (!finished) {
-            if (!isRest) {
+            if (isPreparation) {
+                doRest(
+                    prepTimeLeft,
+                    toneGen,
+                    isPaused = { isPaused },
+                    onTimeLeftChange = { left -> prepTimeLeft = left }
+                )
+                isPreparation = false
+            } else if (!isRest) {
                 doExercise(
                     secondsPerRep,
                     reps,
@@ -143,6 +176,7 @@ fun ExerciseScreen(
                             currentSet++
                             isRest = true
                             currentRep = 1
+                            restTimeLeft = restSeconds
                         } else {
                             finished = true
                         }
@@ -152,10 +186,10 @@ fun ExerciseScreen(
                 )
             } else {
                 doRest(
-                    restSeconds,
+                    restTimeLeft,
                     toneGen,
                     isPaused = { isPaused },
-                    onTimeLeftChange = { timeLeft = it }
+                    onTimeLeftChange = { left -> restTimeLeft = left; timeLeft = left }
                 )
                 isRest = false
                 timeLeft = secondsPerRep
@@ -163,36 +197,54 @@ fun ExerciseScreen(
         }
     }
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .background(phaseColor)
-            .padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
     ) {
-        val bigText = TextStyle(fontSize = 36.sp)
-        val mediumText = TextStyle(fontSize = 28.sp)
-        if (finished) {
-            Text(text = "Тренировка завершена!", color = Color.Red, style = bigText)
-        } else {
-            Text(text = "Подход: $currentSet / $sets", style = bigText)
-            Text(text = "Повторение: $currentRep / $reps", style = bigText)
-            Text(text = if (isRest) "Отдых" else "Выполнение", style = mediumText)
-            Text(text = "Осталось секунд: $timeLeft", style = bigText)
-            Spacer(modifier = Modifier.height(32.dp))
+        Column(
+            modifier = Modifier.align(Alignment.Center),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            val bigText = TextStyle(fontSize = 36.sp)
+            val mediumText = TextStyle(fontSize = 28.sp)
+            val hugeText = TextStyle(fontSize = 96.sp)
+            if (finished) {
+                Text(
+                    text = "Упражнение завершено", color = Color.Red,
+                    style = bigText,
+                    modifier = Modifier.wrapContentSize(Alignment.Center)
+                )
+            } else if (isPreparation) {
+                Text(text = "Подготовка", style = bigText, color = Color(0xFFFBC02D))
+                Text(text = prepTimeLeft.toString(), style = hugeText)
+                Spacer(modifier = Modifier.height(32.dp))
+            } else {
+                Text(text = "Подход: $currentSet / $sets", style = bigText)
+                Text(text = "Повторение: $currentRep / $reps", style = bigText)
+                Text(text = if (isRest) "Отдых" else "Выполнение", style = mediumText)
+                Text(text = timeLeft.toString(), style = hugeText)
+                Spacer(modifier = Modifier.height(32.dp))
+            }
+        }
+        if (!finished) {
             Button(
                 onClick = { isPaused = !isPaused },
-                modifier = Modifier.pointerInput(Unit) {
-                    detectTapGestures(
-                        onLongPress = {
-                            finished = true
-                        }
-                    )
-                },
+                shape = androidx.compose.foundation.shape.CircleShape,
+                modifier = Modifier
+                    .height(120.dp)
+                    .width(120.dp)
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 0.dp, bottom = 24.dp)
+                    .navigationBarsPadding(),
                 interactionSource = interactionSource
             ) {
-                Text(text = if (isPaused) "Возобновить" else "Пауза", style = mediumText)
+                if (!isPaused) {
+                    Text("\u23F8", fontSize = 24.sp, color = Color.White)
+                } else {
+                    Text("\u25B6", fontSize = 24.sp, color = Color.White)
+                }
             }
         }
     }
