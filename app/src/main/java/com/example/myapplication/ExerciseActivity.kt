@@ -15,7 +15,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.myapplication.ui.theme.MyApplicationTheme
 import androidx.compose.ui.input.pointer.pointerInput
 
@@ -39,6 +41,78 @@ class ExerciseActivity : ComponentActivity() {
     }
 }
 
+suspend fun doExercise(
+    secondsPerRep: Int,
+    reps: Int,
+    toneGen: ToneGenerator,
+    onRepEnd: () -> Unit,
+    onSetEnd: () -> Unit,
+    isPaused: () -> Boolean,
+    onTimeLeftChange: (Int) -> Unit
+) {
+    // Начало подхода: длинный громкий сигнал
+    toneGen.startTone(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD, 500)
+    for (rep in 1..reps) {
+        var timeLeft = secondsPerRep
+        while (timeLeft > 0) {
+            // Двойной бип в начале повторения
+            if (timeLeft == secondsPerRep) {
+                repeat(2) { toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 100); kotlinx.coroutines.delay(100) }
+            } else if (timeLeft == secondsPerRep / 2) {
+                // Двойной бип в середине повторения
+                repeat(2) { toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 100); kotlinx.coroutines.delay(100) }
+            } else {
+                // Обычный бип каждую секунду
+                toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 100)
+            }
+            onTimeLeftChange(timeLeft)
+            kotlinx.coroutines.delay(1000)
+            if (isPaused()) {
+                doPauseInExercise(isPaused, timeLeft, onTimeLeftChange)
+            }
+            timeLeft--
+        }
+        onRepEnd()
+    }
+    // Конец подхода: длинный бип
+    toneGen.startTone(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD, 500)
+    onSetEnd()
+}
+
+suspend fun doPauseInExercise(isPaused: () -> Boolean, timeLeft: Int, onTimeLeftChange: (Int) -> Unit) {
+    while (isPaused()) {
+        onTimeLeftChange(timeLeft)
+        kotlinx.coroutines.delay(100)
+    }
+}
+
+suspend fun doRest(
+    restSeconds: Int,
+    toneGen: ToneGenerator,
+    isPaused: () -> Boolean,
+    onTimeLeftChange: (Int) -> Unit
+) {
+    var timeLeft = restSeconds
+    while (timeLeft > 0) {
+        if (timeLeft <= 5) {
+            toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 100)
+        }
+        onTimeLeftChange(timeLeft)
+        kotlinx.coroutines.delay(1000)
+        if (isPaused()) {
+            doPauseInRest(isPaused)
+        }
+        timeLeft--
+        // Можно добавить сигналы для отдыха, если потребуется
+    }
+}
+
+suspend fun doPauseInRest(isPaused: () -> Boolean) {
+    while (isPaused()) {
+        kotlinx.coroutines.delay(100)
+    }
+}
+
 @Composable
 fun ExerciseScreen(
     secondsPerRep: Int,
@@ -56,47 +130,35 @@ fun ExerciseScreen(
     val toneGen = remember { ToneGenerator(AudioManager.STREAM_MUSIC, 100) }
     val interactionSource = remember { MutableInteractionSource() }
 
-    // Таймерная логика
-    LaunchedEffect(currentSet, currentRep, isRest, isPaused) {
-        if (!isPaused && !finished) {
-            while (timeLeft > 0) {
-                kotlinx.coroutines.delay(1000)
-                if (isPaused) break
-                timeLeft--
-                // Звуковой сигнал каждую секунду при выполнении повторения
-                if (!isRest) toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 100)
-                // Особый сигнал в середине повторения
-                if (!isRest && timeLeft == secondsPerRep / 2) toneGen.startTone(ToneGenerator.TONE_PROP_ACK, 200)
-                // Особый сигнал в конце повторения
-                if (!isRest && timeLeft == 1) toneGen.startTone(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD, 300)
-                // Во время отдыха: сигнал каждые 10 секунд, в последние 5 секунд — каждую секунду
-                if (isRest) {
-                    if (timeLeft <= 5 || timeLeft % 10 == 0) toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 100)
-                }
-            }
-            if (!isPaused && !finished) {
-                if (!isRest) {
-                    // Конец повторения
-                    if (currentRep < reps) {
-                        currentRep++
-                        timeLeft = secondsPerRep
-                    } else {
-                        // Конец подхода
-                        toneGen.startTone(ToneGenerator.TONE_SUP_RINGTONE, 500)
+    LaunchedEffect(currentSet, isRest, isPaused, finished) {
+        if (!finished) {
+            if (!isRest) {
+                doExercise(
+                    secondsPerRep,
+                    reps,
+                    toneGen,
+                    onRepEnd = { currentRep = (currentRep % reps) + 1 },
+                    onSetEnd = {
                         if (currentSet < sets) {
                             currentSet++
-                            currentRep = 1
                             isRest = true
-                            timeLeft = restSeconds
+                            currentRep = 1
                         } else {
                             finished = true
                         }
-                    }
-                } else {
-                    // Конец отдыха
-                    isRest = false
-                    timeLeft = secondsPerRep
-                }
+                    },
+                    isPaused = { isPaused },
+                    onTimeLeftChange = { timeLeft = it }
+                )
+            } else {
+                doRest(
+                    restSeconds,
+                    toneGen,
+                    isPaused = { isPaused },
+                    onTimeLeftChange = { timeLeft = it }
+                )
+                isRest = false
+                timeLeft = secondsPerRep
             }
         }
     }
@@ -109,13 +171,15 @@ fun ExerciseScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
+        val bigText = TextStyle(fontSize = 36.sp)
+        val mediumText = TextStyle(fontSize = 28.sp)
         if (finished) {
-            Text(text = "Тренировка завершена!", color = Color.Red)
+            Text(text = "Тренировка завершена!", color = Color.Red, style = bigText)
         } else {
-            Text(text = "Подход: $currentSet / $sets")
-            Text(text = "Повторение: $currentRep / $reps")
-            Text(text = if (isRest) "Отдых" else "Выполнение")
-            Text(text = "Осталось секунд: $timeLeft")
+            Text(text = "Подход: $currentSet / $sets", style = bigText)
+            Text(text = "Повторение: $currentRep / $reps", style = bigText)
+            Text(text = if (isRest) "Отдых" else "Выполнение", style = mediumText)
+            Text(text = "Осталось секунд: $timeLeft", style = bigText)
             Spacer(modifier = Modifier.height(32.dp))
             Button(
                 onClick = { isPaused = !isPaused },
@@ -128,7 +192,7 @@ fun ExerciseScreen(
                 },
                 interactionSource = interactionSource
             ) {
-                Text(text = if (isPaused) "Возобновить" else "Пауза")
+                Text(text = if (isPaused) "Возобновить" else "Пауза", style = mediumText)
             }
         }
     }
