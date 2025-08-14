@@ -9,15 +9,22 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.myapplication.ui.theme.MyApplicationTheme
+import android.R
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PlayArrow
+// import androidx.compose.material.icons.filled.Pause as PauseIcon
+import androidx.compose.material3.Icon
 
 class ExerciseActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -235,15 +242,26 @@ fun ExerciseScreen(
                 modifier = Modifier
                     .height(120.dp)
                     .width(120.dp)
+                    .padding(16.dp)
                     .align(Alignment.BottomEnd)
-                    .padding(end = 0.dp, bottom = 24.dp)
+//                    .padding(end = 0.dp, bottom = 24.dp)
                     .navigationBarsPadding(),
                 interactionSource = interactionSource
             ) {
                 if (!isPaused) {
-                    Text("\u23F8", fontSize = 24.sp, color = Color.White)
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_media_pause),
+                        contentDescription = "Пауза",
+                        tint = Color.White,
+                        modifier = Modifier.size(48.dp)
+                    )
                 } else {
-                    Text("\u25B6", fontSize = 24.sp, color = Color.White)
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_media_play),
+                        contentDescription = "Продолжить",
+                        tint = Color.White,
+                        modifier = Modifier.size(48.dp)
+                    )
                 }
             }
         }

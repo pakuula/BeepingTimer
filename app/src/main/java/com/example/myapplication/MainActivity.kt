@@ -5,36 +5,32 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import com.example.myapplication.ui.theme.MyApplicationTheme
 import androidx.compose.ui.unit.dp
-import android.util.Log
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.fillMaxWidth
+import com.example.myapplication.ui.theme.MyApplicationTheme
 
 // Таймерная модель
-data class TimerPreset(
-    val title: String, // Название пресета
-    // Параметры таймера
-    val secondsPerRep: Int, // Время на одно повторение в секундах
-    val reps: Int, // Количество повторений
-    val restSeconds: Int, // Время отдыха между повторениями в секундах
-    val sets: Int, // Количество подходов
-    val prepTime: Int = 7 // Время подготовки по умолчанию
-)
+//data class TimerPreset(
+//    val title: String, // Название пресета
+//    // Параметры таймера
+//    val secondsPerRep: Int, // Время на одно повторение в секундах
+//    val reps: Int, // Количество повторений
+//    val restSeconds: Int, // Время отдыха между повторениями в секундах
+//    val sets: Int, // Количество подходов
+//    val prepTime: Int = 7 // Время подготовки по умолчанию
+//)
 
 val timerPresets = listOf(
     TimerPreset("6 сек/8 повторов/50 сек/4 подхода", 6, 8, 50, 4),
@@ -46,22 +42,19 @@ val timerPresets = listOf(
 
 @Composable
 fun TimerList(onPresetClick: (TimerPreset) -> Unit) {
+    val scrollState = rememberScrollState()
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .verticalScroll(scrollState)
             .padding(WindowInsets.statusBars.asPaddingValues())
             .padding(16.dp)
     ) {
         timerPresets.forEach { preset ->
-            Log.i("TimerList", "Preset: ${preset.title}")
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { onPresetClick(preset) },
-                elevation = CardDefaults.cardElevation(4.dp)
-            ) {
-                Text(text = preset.title, modifier = Modifier.padding(16.dp))
-            }
+            TimerPresetWidget(
+                preset = preset,
+                onStart = { onPresetClick(it) }
+            )
             Spacer(modifier = Modifier.height(12.dp))
         }
     }
