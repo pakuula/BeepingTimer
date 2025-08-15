@@ -22,6 +22,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateListOf
@@ -30,34 +31,52 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument // Исправленный импорт
+import java.util.UUID
 import me.pakuula.beeper.theme.BeeperTheme
 
 @Composable
 fun TimerList(
     timers: List<TimerPreset>,
     onPresetClick: (TimerPreset) -> Unit,
-    onEdit: (TimerPreset) -> Unit
+    onEdit: (TimerPreset) -> Unit,
+    onAdd: () -> Unit // добавлен обработчик для кнопки добавления
 ) {
-    Log.i("EditLog", "TimerList called with ${timers.size} presets")
-    timers.forEach { Log.i("EditLog", "- ${it.title}") }
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(WindowInsets.statusBars.asPaddingValues())
-            .padding(16.dp)
-    ) {
-        items(timers, key = { it.title }) { preset ->
-            TimerPresetWidget(
-                preset = preset,
-                onStart = { onPresetClick(it) },
-                onEdit = onEdit
+    if (timers.isEmpty()) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            Text(
+                text = "Нет таймеров",
+                modifier = Modifier.align(Alignment.Center),
+                fontSize = 20.sp
             )
-            Spacer(modifier = Modifier.height(12.dp))
+            FloatingActionButton(
+                onClick = onAdd,
+                modifier = Modifier.align(Alignment.BottomEnd).padding(24.dp),
+                containerColor = Color(0xFF2196F3)
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Добавить таймер", tint = Color.White)
+            }
+        }
+    } else {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(WindowInsets.statusBars.asPaddingValues())
+                .padding(16.dp)
+        ) {
+            items(timers, key = { it.id }) { preset ->
+                TimerPresetWidget(
+                    preset = preset,
+                    onStart = { onPresetClick(it) },
+                    onEdit = onEdit
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+            }
         }
     }
 }
@@ -70,10 +89,10 @@ class MainActivity : ComponentActivity() {
         // Инициализация таймеров
         if (TimerStorage.isFirstLaunch(this)) {
             val defaultTimers = listOf(
-                TimerPreset("6 сек/8 повторов/50 сек/4 подхода", 6, 8, 50, 4),
-                TimerPreset("8 сек/6 повторов/50 сек/4 подхода", 8, 6, 50, 4),
-                TimerPreset("6 сек/8 повторов/8 сек/8 подходов", 6, 8, 8, 8),
-                TimerPreset("8 сек/6 повторов/8 сек/8 подходов", 8, 6, 8, 8)
+                TimerPreset(UUID.randomUUID().toString(), "6 сек/8 повторов/50 сек/4 подхода", 6, 8, 50, 4),
+                TimerPreset(UUID.randomUUID().toString(), "8 сек/6 повторов/50 сек/4 подхода", 8, 6, 50, 4),
+                TimerPreset(UUID.randomUUID().toString(), "6 сек/8 повторов/8 сек/8 подходов", 6, 8, 8, 8),
+                TimerPreset(UUID.randomUUID().toString(), "8 сек/6 повторов/8 сек/8 подходов", 8, 6, 8, 8)
             )
             TimerStorage.saveTimers(this, defaultTimers)
         }
@@ -107,30 +126,32 @@ class MainActivity : ComponentActivity() {
                                         startActivity(intent)
                                     },
                                     onEdit = { preset ->
-                                        navController.navigate("edit/${Uri.encode(preset.title)}")
-                                    }
+                                        navController.navigate("edit/${preset.id}")
+                                    },
+                                    onAdd = { navController.navigate("add") }
                                 )
-                                FloatingActionButton(
-                                    onClick = { navController.navigate("add") },
-                                    modifier = Modifier.align(Alignment.BottomEnd).padding(24.dp),
-                                    containerColor = Color(0xFF2196F3)
-                                ) {
-                                    Icon(Icons.Default.Add, contentDescription = "Добавить таймер", tint = Color.White)
+                                if (timers.isNotEmpty()) {
+                                    FloatingActionButton(
+                                        onClick = { navController.navigate("add") },
+                                        modifier = Modifier.align(Alignment.BottomEnd).padding(24.dp),
+                                        containerColor = Color(0xFF2196F3)
+                                    ) {
+                                        Icon(Icons.Default.Add, contentDescription = "Добавить таймер", tint = Color.White)
+                                    }
                                 }
                             }
                         }
                         composable(
-                            "edit/{timerTitle}",
-                            arguments = listOf(navArgument("timerTitle") { type = NavType.StringType })
+                            "edit/{timerId}",
+                            arguments = listOf(navArgument("timerId") { type = NavType.StringType })
                         ) { backStackEntry ->
-                            val timerTitle = backStackEntry.arguments?.getString("timerTitle") ?: ""
-                            val decodedTitle = Uri.decode(timerTitle)
-                            val preset = timers.find { it.title == decodedTitle }
+                            val timerId = backStackEntry.arguments?.getString("timerId") ?: ""
+                            val preset = timers.find { it.id == timerId }
                             if (preset != null) {
                                 TimerEditScreen(
                                     preset = preset,
                                     onSave = { edited ->
-                                        val idx = timers.indexOfFirst { it.title == preset.title }
+                                        val idx = timers.indexOfFirst { it.id == preset.id }
                                         if (idx >= 0) timers[idx] = edited
                                         else timers.add(edited)
                                         TimerStorage.saveTimers(this@MainActivity, timers)
@@ -139,8 +160,10 @@ class MainActivity : ComponentActivity() {
                                         }
                                     },
                                     onDelete = { deleted ->
-                                        timers.removeAll { it.title == deleted.title }
+                                        // Удаляем таймер по id
+                                        timers.removeAll { it.id == deleted.id }
                                         TimerStorage.saveTimers(this@MainActivity, timers)
+                                        // После удаления всегда возвращаемся на главный экран
                                         navController.navigate("home") {
                                             popUpTo("home") { inclusive = true }
                                         }
@@ -150,7 +173,7 @@ class MainActivity : ComponentActivity() {
                                             popUpTo("home") { inclusive = true }
                                         }
                                     },
-                                    isNameUnique = { name -> timers.none { it.title == name || (preset.title == name) } }
+                                    isNameUnique = { name -> timers.none { it.title == name && it.id != preset.id } }
                                 )
                             } else {
                                 // Если таймер не найден, просто возвращаемся назад
@@ -160,6 +183,7 @@ class MainActivity : ComponentActivity() {
                         composable("add") {
                             val defaultName = "Таймер ${timers.size + 1}"
                             val defaultPreset = TimerPreset(
+                                UUID.randomUUID().toString(),
                                 defaultName,
                                 8, // secondsPerRep
                                 6, // reps

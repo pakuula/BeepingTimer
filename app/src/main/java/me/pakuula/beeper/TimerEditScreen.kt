@@ -88,6 +88,7 @@ fun TimerEditScreen(
                     Log.i("EditLog", "Saving timer: ${title.text}")
                     onSave(
                         TimerPreset(
+                            preset.id, // сохраняем исходный id таймера
                             title.text,
                             secondsPerRep,
                             reps,
@@ -117,6 +118,7 @@ fun TimerEditScreen(
                         showDeleteConfirm = false
                         onDelete(
                             TimerPreset(
+                                preset.id, // сохраняем исходный id таймера
                                 title.text,
                                 secondsPerRep,
                                 reps,

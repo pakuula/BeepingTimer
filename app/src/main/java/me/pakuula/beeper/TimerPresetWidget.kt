@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.sp
 
 // Модель пресета
 data class TimerPreset(
+    val id: String, // Уникальный идентификатор таймера
     val title: String, // Название пресета
     // Параметры таймера
     val secondsPerRep: Int, // Время на одно повторение в секундах
