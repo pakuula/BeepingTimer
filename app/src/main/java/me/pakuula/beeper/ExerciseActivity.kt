@@ -1,7 +1,6 @@
 package me.pakuula.beeper
 
 //noinspection SuspiciousImport
-import android.R
 import android.media.AudioManager
 import android.media.ToneGenerator
 import android.os.Bundle
@@ -9,25 +8,25 @@ import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -38,8 +37,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import me.pakuula.beeper.theme.BeeperTheme
 import kotlinx.coroutines.delay
+import me.pakuula.beeper.theme.BeeperTheme
 
 class ExerciseActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -66,37 +65,40 @@ class ExerciseActivity : ComponentActivity() {
 
 suspend fun doExercise(
     secondsPerRep: Int,
-    reps: Int,
     toneGen: ToneGenerator,
-    onRepEnd: () -> Unit,
-    onSetEnd: () -> Unit,
+    onRepEnd: () -> Boolean, // возвращает true если продолжаем, false если ручной переход
+    onSetEnd: () -> Boolean, // аналогично для подхода
     isPaused: () -> Boolean,
     onTimeLeftChange: (Int) -> Unit
 ) {
     // Начало подхода: длинный громкий сигнал
     toneGen.startTone(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD, 500)
-    for (rep in 1..reps) {
+    while (true) {
         var timeLeft = secondsPerRep
         while (timeLeft > 0) {
             // Двойной бип в начале повторения
-            if (timeLeft == secondsPerRep) {
-                repeat(2) {
-                    toneGen.startTone(
-                        ToneGenerator.TONE_PROP_BEEP,
-                        100
-                    ); delay(100)
+            when (timeLeft) {
+                secondsPerRep -> {
+                    repeat(2) {
+                        toneGen.startTone(
+                            ToneGenerator.TONE_PROP_BEEP,
+                            100
+                        ); delay(100)
+                    }
                 }
-            } else if (timeLeft == secondsPerRep / 2) {
-                // Двойной бип в середине повторения
-                repeat(2) {
-                    toneGen.startTone(
-                        ToneGenerator.TONE_PROP_BEEP,
-                        100
-                    ); delay(100)
+                secondsPerRep / 2 -> {
+                    // Двойной бип в середине повторения
+                    repeat(2) {
+                        toneGen.startTone(
+                            ToneGenerator.TONE_PROP_BEEP,
+                            100
+                        ); delay(100)
+                    }
                 }
-            } else {
-                // Обычный бип каждую секунду
-                toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 100)
+                else -> {
+                    // Обычный бип каждую секунду
+                    toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 100)
+                }
             }
             onTimeLeftChange(timeLeft)
             delay(1000)
@@ -105,10 +107,12 @@ suspend fun doExercise(
             }
             timeLeft--
         }
-        onRepEnd()
+        // Если onRepEnd() == false, цикл завершается
+        if (!onRepEnd()) break
     }
     // Конец подхода: длинный бип
     toneGen.startTone(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD, 500)
+    // Если onSetEnd() == false, не продолжаем дальше
     onSetEnd()
 }
 
@@ -145,7 +149,7 @@ suspend fun doRest(
 }
 
 suspend fun doPauseInRest(isPaused: () -> Boolean, timeLeft: Int): Int {
-    var currentTimeLeft = timeLeft
+    val currentTimeLeft = timeLeft
     while (isPaused()) {
         delay(100)
     }
@@ -161,13 +165,13 @@ fun ExerciseScreen(
     prepTime: Int
 ) {
     var isPreparation by remember { mutableStateOf(true) }
-    var prepTimeLeft by remember { mutableStateOf(prepTime) }
-    var currentSet by remember { mutableStateOf(1) }
-    var currentRep by remember { mutableStateOf(1) }
+    var prepTimeLeft by remember { mutableIntStateOf(prepTime) }
+    var currentSet by remember { mutableIntStateOf(1) }
+    var currentRep by remember { mutableIntStateOf(1) }
     var isRest by remember { mutableStateOf(false) }
     var isPaused by remember { mutableStateOf(false) }
-    var timeLeft by remember { mutableStateOf(secondsPerRep) }
-    var restTimeLeft by remember { mutableStateOf(restSeconds) }
+    var timeLeft by remember { mutableIntStateOf(secondsPerRep) }
+    var restTimeLeft by remember { mutableIntStateOf(restSeconds) }
     var finished by remember { mutableStateOf(false) }
     val phaseColor = when {
         isPreparation -> Color(0xFFFFF176) // жёлтый
@@ -175,7 +179,6 @@ fun ExerciseScreen(
         else -> Color(0xFFA5D6A7)
     }
     val toneGen = remember { ToneGenerator(AudioManager.STREAM_MUSIC, 100) }
-    val interactionSource = remember { MutableInteractionSource() }
 
     LaunchedEffect(currentSet, isRest, isPaused, finished, isPreparation) {
         if (!finished) {
@@ -190,17 +193,21 @@ fun ExerciseScreen(
             } else if (!isRest) {
                 doExercise(
                     secondsPerRep,
-                    reps,
                     toneGen,
-                    onRepEnd = { currentRep = (currentRep % reps) + 1 },
+                    onRepEnd = {
+                        currentRep = (currentRep % reps) + 1
+                        currentRep != 1
+                    },
                     onSetEnd = {
                         if (currentSet < sets) {
                             currentSet++
                             isRest = true
                             currentRep = 1
                             restTimeLeft = restSeconds
+                            true
                         } else {
                             finished = true
+                            false
                         }
                     },
                     isPaused = { isPaused },
@@ -250,34 +257,121 @@ fun ExerciseScreen(
                 Spacer(modifier = Modifier.height(32.dp))
             }
         }
+        // Нижняя панель управления: перемотка назад, пауза/воспроизведение, перемотка вперед
         if (!finished) {
-            Button(
-                onClick = { isPaused = !isPaused },
-                shape = CircleShape,
+            // Получаем ширину экрана
+            val screenWidth = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp.dp
+            val iconWidth = 64.dp
+            val pauseWidth = 96.dp
+            val totalIconsWidth = iconWidth * 2 + pauseWidth
+            val spaceL = (screenWidth - totalIconsWidth) / 3f
+            Row(
                 modifier = Modifier
-                    .height(120.dp)
-                    .width(120.dp)
-                    .padding(16.dp)
-                    .align(Alignment.BottomEnd)
-//                    .padding(end = 0.dp, bottom = 24.dp)
-                    .navigationBarsPadding(),
-                interactionSource = interactionSource
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 32.dp)
+                    .fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                if (!isPaused) {
+                Spacer(modifier = Modifier.width(spaceL / 2))
+                IconButton(
+                    onClick = {
+                        if (isPreparation) return@IconButton
+                        if (isRest) {
+                            if (currentSet > 1) {
+                                currentSet--
+                                currentRep = reps
+                                isRest = false
+                                timeLeft = secondsPerRep
+                            }
+                        } else {
+                            if (currentRep > 1) {
+                                currentRep--
+                                timeLeft = secondsPerRep
+                            } else if (currentSet > 1) {
+                                // currentSet--
+                                // currentRep = reps
+                                currentRep = 1
+                                isRest = true
+                                restTimeLeft = restSeconds
+                            }
+                        }
+                    },
+                    modifier = Modifier.size(iconWidth)
+                ) {
                     Icon(
-                        painter = painterResource(id = R.drawable.ic_media_pause),
-                        contentDescription = "Пауза",
-                        tint = Color.White,
-                        modifier = Modifier.size(48.dp)
-                    )
-                } else {
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_media_play),
-                        contentDescription = "Продолжить",
-                        tint = Color.White,
-                        modifier = Modifier.size(48.dp)
+                        painter = painterResource(android.R.drawable.ic_media_previous),
+                        contentDescription = "Назад",
+                        tint = Color.DarkGray,
+                        modifier = Modifier.size(iconWidth)
                     )
                 }
+                Spacer(modifier = Modifier.width(spaceL))
+                IconButton(
+                    onClick = { isPaused = !isPaused },
+                    modifier = Modifier.size(pauseWidth)
+                ) {
+                    if (isPaused) {
+                        Icon(
+                            painter = painterResource(android.R.drawable.ic_media_play),
+                            contentDescription = "Воспроизведение",
+                            tint = Color.DarkGray,
+                            modifier = Modifier.size(pauseWidth)
+                        )
+                    } else {
+                        Icon(
+                            painter = painterResource(android.R.drawable.ic_media_pause),
+                            contentDescription = "Пауза",
+                            tint = Color.DarkGray,
+                            modifier = Modifier.size(pauseWidth)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.width(spaceL))
+                IconButton(
+                    onClick = {
+                        if (isPreparation) {
+                            isPreparation = false
+                            return@IconButton
+                        }
+                        // Исправленная логика для "вперёд": если последнее повторение последнего подхода, завершаем упражнение
+                        if (isRest) {
+                            if (currentSet < sets) {
+                                currentRep = 1
+                                isRest = false
+                                timeLeft = secondsPerRep
+                            } else if (currentSet == sets) {
+                                // Если это отдых перед последним подходом, сразу переходим к первому повтору последнего подхода
+                                currentRep = 1
+                                isRest = false
+                                timeLeft = secondsPerRep
+                            }
+                        } else {
+                            if (currentSet == sets && currentRep == reps) {
+                                // Последнее повторение последнего подхода — завершаем упражнение
+                                finished = true
+                                return@IconButton
+                            }
+                            if (currentRep < reps) {
+                                currentRep++
+                                timeLeft = secondsPerRep
+                            } else if (currentSet < sets) {
+                                currentSet++
+                                currentRep = 1
+                                isRest = true
+                                restTimeLeft = restSeconds
+                            }
+                        }
+                    },
+                    modifier = Modifier.size(iconWidth)
+                ) {
+                    Icon(
+                        painter = painterResource(android.R.drawable.ic_media_next),
+                        contentDescription = "Вперёд",
+                        tint = Color.DarkGray,
+                        modifier = Modifier.size(iconWidth)
+                    )
+                }
+                Spacer(modifier = Modifier.width(spaceL / 2))
             }
         }
     }
