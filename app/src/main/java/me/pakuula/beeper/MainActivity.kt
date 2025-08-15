@@ -7,6 +7,7 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
@@ -16,12 +17,18 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -86,24 +93,31 @@ class MainActivity : ComponentActivity() {
                         startDestination = "home"
                     ) {
                         composable("home") {
-                            Log.i("EditLog", "Navigating to home")
-                            TimerList(
-                                timers = timers,
-                                onPresetClick = { preset ->
-                                    val intent = Intent(this@MainActivity, ExerciseActivity::class.java).apply {
-                                        putExtra("secondsPerRep", preset.secondsPerRep)
-                                        putExtra("reps", preset.reps)
-                                        putExtra("restSeconds", preset.restSeconds)
-                                        putExtra("sets", preset.sets)
-                                        putExtra("prepTime", preset.prepTime)
+                            Box(modifier = Modifier.fillMaxSize()) {
+                                TimerList(
+                                    timers = timers,
+                                    onPresetClick = { preset ->
+                                        val intent = Intent(this@MainActivity, ExerciseActivity::class.java).apply {
+                                            putExtra("secondsPerRep", preset.secondsPerRep)
+                                            putExtra("reps", preset.reps)
+                                            putExtra("restSeconds", preset.restSeconds)
+                                            putExtra("sets", preset.sets)
+                                            putExtra("prepTime", preset.prepTime)
+                                        }
+                                        startActivity(intent)
+                                    },
+                                    onEdit = { preset ->
+                                        navController.navigate("edit/${Uri.encode(preset.title)}")
                                     }
-                                    startActivity(intent)
-                                },
-                                onEdit = { preset ->
-                                    navController.navigate("edit/${Uri.encode(preset.title)}")
+                                )
+                                FloatingActionButton(
+                                    onClick = { navController.navigate("add") },
+                                    modifier = Modifier.align(Alignment.BottomEnd).padding(24.dp),
+                                    containerColor = Color(0xFF2196F3)
+                                ) {
+                                    Icon(Icons.Default.Add, contentDescription = "Добавить таймер", tint = Color.White)
                                 }
-                                // для передачи в TimerPresetWidget
-                            )
+                            }
                         }
                         composable(
                             "edit/{timerTitle}",
@@ -142,6 +156,35 @@ class MainActivity : ComponentActivity() {
                                 // Если таймер не найден, просто возвращаемся назад
                                 LaunchedEffect(Unit) { navController.popBackStack() }
                             }
+                        }
+                        composable("add") {
+                            val defaultName = "Таймер ${timers.size + 1}"
+                            val defaultPreset = TimerPreset(
+                                defaultName,
+                                8, // secondsPerRep
+                                6, // reps
+                                50, // restSeconds
+                                4 // sets
+                            )
+                            TimerEditScreen(
+                                preset = defaultPreset,
+                                onSave = { newPreset ->
+                                    if (timers.none { it.title == newPreset.title }) {
+                                        timers.add(newPreset)
+                                        TimerStorage.saveTimers(this@MainActivity, timers)
+                                        navController.navigate("home") {
+                                            popUpTo("home") { inclusive = true }
+                                        }
+                                    }
+                                },
+                                onDelete = {}, // не показывать кнопку удаления
+                                onCancel = {
+                                    navController.navigate("home") {
+                                        popUpTo("home") { inclusive = true }
+                                    }
+                                },
+                                isNameUnique = { name -> timers.none { it.title == name } }
+                            )
                         }
                     }
                 }
