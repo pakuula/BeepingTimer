@@ -38,7 +38,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import me.pakuula.beeper.theme.MyApplicationTheme
+import me.pakuula.beeper.theme.BeeperTheme
 import kotlinx.coroutines.delay
 
 class ExerciseActivity : ComponentActivity() {
@@ -51,7 +51,7 @@ class ExerciseActivity : ComponentActivity() {
         val sets = intent.getIntExtra("sets", 4)
         val prepTime = intent.getIntExtra("prepTime", 7)
         setContent {
-            MyApplicationTheme {
+            BeeperTheme {
                 ExerciseScreen(
                     secondsPerRep = secondsPerRep,
                     reps = reps,

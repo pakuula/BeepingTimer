@@ -19,7 +19,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import me.pakuula.beeper.theme.MyApplicationTheme
+import me.pakuula.beeper.theme.BeeperTheme
 
 
 val timerPresets = listOf(
@@ -55,7 +55,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            MyApplicationTheme {
+            BeeperTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     TimerList { preset ->
                         val intent = Intent(this, ExerciseActivity::class.java).apply {
