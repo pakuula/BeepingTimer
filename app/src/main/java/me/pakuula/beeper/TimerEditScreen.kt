@@ -3,7 +3,6 @@ package me.pakuula.beeper
 import android.util.Log
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
@@ -19,8 +18,8 @@ fun TimerEditScreen(
     preset: TimerPreset,
     onSave: (TimerPreset) -> Unit,
     onDelete: (TimerPreset) -> Unit,
-    onCancel: () -> Unit,
-    isNameUnique: (String) -> Boolean
+    isNameUnique: (String) -> Boolean,
+    isNew: Boolean // добавлен параметр
 ) {
     var title by remember { mutableStateOf(TextFieldValue(preset.title)) }
     var secondsPerRep by remember { mutableIntStateOf(preset.secondsPerRep) }
@@ -36,7 +35,7 @@ fun TimerEditScreen(
             modifier = Modifier.align(Alignment.Center).padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text(text = "Редактирование таймера", fontSize = 22.sp)
+            Text(text = if (isNew) "Создание таймера" else "Редактирование таймера", fontSize = 22.sp)
             OutlinedTextField(
                 value = title,
                 onValueChange = {
@@ -77,11 +76,13 @@ fun TimerEditScreen(
         // Добавлен вертикальный интервал между последней строкой и рядом кнопок
         Spacer(modifier = Modifier.height(32.dp))
         Row(
-            modifier = Modifier.align(Alignment.BottomEnd).padding(24.dp),
+            modifier = Modifier.align(Alignment.BottomEnd).padding(24.dp).navigationBarsPadding(),
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            IconButton(onClick = { showDeleteConfirm = true }) {
-                Icon(Icons.Default.Delete, contentDescription = "Удалить")
+            if (!isNew) {
+                IconButton(onClick = { showDeleteConfirm = true }) {
+                    Icon(Icons.Default.Delete, contentDescription = "Удалить")
+                }
             }
             IconButton(onClick = {
                 if (!showNameError && title.text.isNotBlank()) {
@@ -102,13 +103,13 @@ fun TimerEditScreen(
                 Icon(Icons.Default.Check, contentDescription = "Сохранить")
             }
         }
-        IconButton(
-            onClick = { onCancel() },
-            modifier = Modifier.align(Alignment.BottomStart).padding(24.dp)
-        ) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Назад")
-        }
-        if (showDeleteConfirm) {
+//        IconButton(
+//            onClick = { onCancel() },
+//            modifier = Modifier.align(Alignment.BottomStart).padding(24.dp)
+//        ) {
+//            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Назад")
+//        }
+        if (showDeleteConfirm && !isNew) {
             AlertDialog(
                 onDismissRequest = { showDeleteConfirm = false },
                 title = { Text("Удалить таймер?") },

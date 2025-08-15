@@ -1,7 +1,6 @@
 package me.pakuula.beeper
 
 import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
@@ -13,6 +12,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.LazyColumn
@@ -39,6 +39,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument // Исправленный импорт
 import java.util.UUID
 import me.pakuula.beeper.theme.BeeperTheme
+import androidx.core.view.WindowCompat
 
 @Composable
 fun TimerList(
@@ -56,7 +57,7 @@ fun TimerList(
             )
             FloatingActionButton(
                 onClick = onAdd,
-                modifier = Modifier.align(Alignment.BottomEnd).padding(24.dp),
+                modifier = Modifier.align(Alignment.BottomEnd).padding(24.dp).navigationBarsPadding(),
                 containerColor = Color(0xFF2196F3)
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Добавить таймер", tint = Color.White)
@@ -85,6 +86,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         Log.i("EditLog", "onCreate called")
         // Инициализация таймеров
         if (TimerStorage.isFirstLaunch(this)) {
@@ -103,6 +105,7 @@ class MainActivity : ComponentActivity() {
                 val navController = rememberNavController()
                 // Загрузка таймеров из конфигурации
                 LaunchedEffect(Unit) {
+                    Log.i("EditLog", "Loading timers")
                     timers.clear()
                     timers.addAll(TimerStorage.loadTimers(this@MainActivity))
                 }
@@ -133,7 +136,7 @@ class MainActivity : ComponentActivity() {
                                 if (timers.isNotEmpty()) {
                                     FloatingActionButton(
                                         onClick = { navController.navigate("add") },
-                                        modifier = Modifier.align(Alignment.BottomEnd).padding(24.dp),
+                                        modifier = Modifier.align(Alignment.BottomEnd).padding(24.dp).navigationBarsPadding(),
                                         containerColor = Color(0xFF2196F3)
                                     ) {
                                         Icon(Icons.Default.Add, contentDescription = "Добавить таймер", tint = Color.White)
@@ -141,6 +144,7 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                         }
+                        // edit существующего таймера
                         composable(
                             "edit/{timerId}",
                             arguments = listOf(navArgument("timerId") { type = NavType.StringType })
@@ -160,26 +164,25 @@ class MainActivity : ComponentActivity() {
                                         }
                                     },
                                     onDelete = { deleted ->
-                                        // Удаляем таймер по id
                                         timers.removeAll { it.id == deleted.id }
                                         TimerStorage.saveTimers(this@MainActivity, timers)
-                                        // После удаления всегда возвращаемся на главный экран
                                         navController.navigate("home") {
                                             popUpTo("home") { inclusive = true }
                                         }
                                     },
-                                    onCancel = {
-                                        navController.navigate("home") {
-                                            popUpTo("home") { inclusive = true }
-                                        }
-                                    },
-                                    isNameUnique = { name -> timers.none { it.title == name && it.id != preset.id } }
+//                                    onCancel = {
+//                                        navController.navigate("home") {
+//                                            popUpTo("home") { inclusive = true }
+//                                        }
+//                                    },
+                                    isNameUnique = { name -> timers.none { it.title == name && it.id != preset.id } },
+                                    isNew = false // таймер не новый
                                 )
                             } else {
-                                // Если таймер не найден, просто возвращаемся назад
                                 LaunchedEffect(Unit) { navController.popBackStack() }
                             }
                         }
+                        // add новый таймер
                         composable("add") {
                             val defaultName = "Таймер ${timers.size + 1}"
                             val defaultPreset = TimerPreset(
@@ -202,12 +205,13 @@ class MainActivity : ComponentActivity() {
                                     }
                                 },
                                 onDelete = {}, // не показывать кнопку удаления
-                                onCancel = {
-                                    navController.navigate("home") {
-                                        popUpTo("home") { inclusive = true }
-                                    }
-                                },
-                                isNameUnique = { name -> timers.none { it.title == name } }
+//                                onCancel = {
+//                                    navController.navigate("home") {
+//                                        popUpTo("home") { inclusive = true }
+//                                    }
+//                                },
+                                isNameUnique = { name -> timers.none { it.title == name } },
+                                isNew = true // таймер новый
                             )
                         }
                     }
