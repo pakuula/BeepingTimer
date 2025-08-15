@@ -7,7 +7,6 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
@@ -24,7 +23,6 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.navigation.NavController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -38,8 +36,7 @@ fun TimerList(
     onPresetClick: (TimerPreset) -> Unit,
     onEdit: (TimerPreset) -> Unit,
     onDelete: (TimerPreset) -> Unit,
-    isNameUnique: (String) -> Boolean,
-    navController: NavController // Добавлено для передачи в TimerPresetWidget
+    isNameUnique: (String) -> Boolean
 ) {
     Log.i("EditLog", "TimerList called with ${timers.size} presets")
     timers.forEach { Log.i("EditLog", "- ${it.title}") }
@@ -53,9 +50,7 @@ fun TimerList(
             TimerPresetWidget(
                 preset = preset,
                 onStart = { onPresetClick(it) },
-                onEdit = onEdit,
-                onDelete = onDelete,
-                isNameUnique = isNameUnique
+                onEdit = onEdit
             )
             Spacer(modifier = Modifier.height(12.dp))
         }
@@ -113,8 +108,8 @@ class MainActivity : ComponentActivity() {
                                     timers.removeAll { it.title == deleted.title }
                                     TimerStorage.saveTimers(this@MainActivity, timers)
                                 },
-                                isNameUnique = { name -> timers.none { it.title == name } },
-                                navController = navController // для передачи в TimerPresetWidget
+                                isNameUnique = { name -> timers.none { it.title == name } }
+                                // для передачи в TimerPresetWidget
                             )
                         }
                         composable(

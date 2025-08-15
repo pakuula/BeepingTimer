@@ -3,6 +3,7 @@ package me.pakuula.beeper
 import android.util.Log
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ArrowBack
@@ -105,7 +106,7 @@ fun TimerEditScreen(
             onClick = { onCancel() },
             modifier = Modifier.align(Alignment.BottomStart).padding(24.dp)
         ) {
-            Icon(Icons.Default.ArrowBack, contentDescription = "Назад")
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Назад")
         }
         if (showDeleteConfirm) {
             AlertDialog(

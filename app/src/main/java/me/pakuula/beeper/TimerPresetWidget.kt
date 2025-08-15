@@ -30,7 +30,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import me.pakuula.beeper.TimerEditScreen
 
 // Модель пресета
 data class TimerPreset(
@@ -47,9 +46,7 @@ data class TimerPreset(
 fun TimerPresetWidget(
     preset: TimerPreset,
     onStart: (TimerPreset) -> Unit,
-    onEdit: (TimerPreset) -> Unit = {},
-    onDelete: (TimerPreset) -> Unit = {},
-    isNameUnique: (String) -> Boolean = { true }
+    onEdit: (TimerPreset) -> Unit = {}
 ) {
     Log.i("EditLog", "TimerPresetWidget called for ${preset.title}")
     var expanded by remember { mutableStateOf(false) }
