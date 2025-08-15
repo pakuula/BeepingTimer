@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
+
 package me.pakuula.beeper
 
 import android.content.Intent
@@ -12,34 +14,50 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.view.WindowCompat
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import androidx.navigation.navArgument // Исправленный импорт
-import java.util.UUID
+import androidx.navigation.navArgument
 import me.pakuula.beeper.theme.BeeperTheme
-import androidx.core.view.WindowCompat
+import java.util.UUID
 
 @Composable
 fun TimerList(
@@ -124,12 +142,40 @@ class MainActivity : ComponentActivity() {
                                         navController.navigate("edit/${preset.id}")
                                     }
                                 )
-                                FloatingActionButton(
-                                    onClick = { navController.navigate("add") },
-                                    modifier = Modifier.align(Alignment.BottomEnd).padding(24.dp).navigationBarsPadding(),
-                                    containerColor = Color(0xFF2196F3)
+                                // Меню и FAB в одном контейнере для правильного позиционирования
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(24.dp)
+                                        .wrapContentSize(Alignment.BottomEnd)
+                                        .navigationBarsPadding()
                                 ) {
-                                    Icon(Icons.Default.Add, contentDescription = "Добавить таймер", tint = Color.White)
+                                    var menuExpanded by remember { mutableStateOf(false) }
+                                    FloatingActionButton(
+                                        onClick = { menuExpanded = true },
+                                        containerColor = Color(0xFF2196F3)
+                                    ) {
+                                        Icon(Icons.Default.MoreVert, contentDescription = "Меню", tint = Color.White)
+                                    }
+                                    DropdownMenu(
+                                        expanded = menuExpanded,
+                                        onDismissRequest = { menuExpanded = false }
+                                    ) {
+                                        DropdownMenuItem(
+                                            text = { Text("Добавить таймер") },
+                                            onClick = {
+                                                menuExpanded = false
+                                                navController.navigate("add")
+                                            }
+                                        )
+                                        DropdownMenuItem(
+                                            text = { Text("Настройки") },
+                                            onClick = {
+                                                menuExpanded = false
+                                                navController.navigate("settings")
+                                            }
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -193,9 +239,167 @@ class MainActivity : ComponentActivity() {
                                 isNew = true // таймер новый
                             )
                         }
+                        composable("settings") {
+                            val settings = remember { SettingsStorage.load(this@MainActivity) }
+                            SettingsScreen(
+                                settings = settings,
+                                onSave = { newSettings ->
+                                    SettingsStorage.save(this@MainActivity, newSettings)
+                                    navController.navigate("home") {
+                                        popUpTo("home") { inclusive = true }
+                                    }
+                                }
+                            )
+                        }
                     }
                 }
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SettingsScreen(
+    settings: Settings,
+    onSave: (Settings) -> Unit
+) {
+    var volume by remember { mutableFloatStateOf(settings.volume.toFloat()) }
+    var prepTime by remember { mutableIntStateOf(settings.prepTime) }
+    var beepsBeforeStart by remember { mutableIntStateOf(settings.beepsBeforeStart) }
+    var beepsBeforeSet by remember { mutableIntStateOf(settings.beepsBeforeSet) }
+    var languageExpanded by remember { mutableStateOf(false) }
+    val languages = listOf("ru", "en")
+    var selectedLanguage by remember { mutableStateOf(settings.language) }
+    var voiceExpanded by remember { mutableStateOf(false) }
+    val voices = listOf("default", "male", "female")
+    var selectedVoice by remember { mutableStateOf(settings.voice) }
+    Box(modifier = Modifier
+        .fillMaxSize()
+        .padding(WindowInsets.statusBars.asPaddingValues())
+        .padding(WindowInsets.navigationBars.asPaddingValues())
+        .padding(16.dp)
+    ) {
+        LazyColumn(modifier = Modifier.fillMaxSize()) {
+            item {
+                Text("Громкость звуковых сигналов", fontSize = 16.sp)
+                Slider(
+                    value = volume,
+                    onValueChange = { volume = it },
+                    valueRange = 0f..100f
+                )
+                Text("${volume.toInt()}%", fontSize = 14.sp)
+            }
+            item {
+                Text("Язык приложения", fontSize = 16.sp)
+                ExposedDropdownMenuBox(
+                    expanded = languageExpanded,
+                    onExpandedChange = { languageExpanded = !languageExpanded }
+                ) {
+                    OutlinedTextField(
+                        value = selectedLanguage,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Язык") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = languageExpanded) },
+                        modifier = Modifier.menuAnchor()
+                    )
+                    DropdownMenu(
+                        expanded = languageExpanded,
+                        onDismissRequest = { languageExpanded = false }
+                    ) {
+                        languages.forEach { lang ->
+                            DropdownMenuItem(
+                                text = { Text(lang) },
+                                onClick = {
+                                    selectedLanguage = lang
+                                    languageExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+            item {
+                Text("Голос синтезатора речи", fontSize = 16.sp)
+                ExposedDropdownMenuBox(
+                    expanded = voiceExpanded,
+                    onExpandedChange = { voiceExpanded = !voiceExpanded }
+                ) {
+                    OutlinedTextField(
+                        value = selectedVoice,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Голос") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = voiceExpanded) },
+                        modifier = Modifier.menuAnchor()
+                    )
+                    DropdownMenu(
+                        expanded = voiceExpanded,
+                        onDismissRequest = { voiceExpanded = false }
+                    ) {
+                        voices.forEach { v ->
+                            DropdownMenuItem(
+                                text = { Text(v) },
+                                onClick = {
+                                    selectedVoice = v
+                                    voiceExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+            item {
+                Text("Время на подготовку к тренировке", fontSize = 16.sp)
+                Slider(
+                    value = prepTime.toFloat(),
+                    onValueChange = { prepTime = it.toInt() },
+                    valueRange = 0f..60f
+                )
+                Text("$prepTime сек", fontSize = 14.sp)
+            }
+            item {
+                Text("Количество бипов перед началом тренировки", fontSize = 16.sp)
+                Slider(
+                    value = beepsBeforeStart.toFloat(),
+                    onValueChange = { beepsBeforeStart = it.toInt() },
+                    valueRange = 0f..10f
+                )
+                Text("$beepsBeforeStart", fontSize = 14.sp)
+            }
+            item {
+                Text("Количество бипов перед началом подхода", fontSize = 16.sp)
+                Slider(
+                    value = beepsBeforeSet.toFloat(),
+                    onValueChange = { beepsBeforeSet = it.toInt() },
+                    valueRange = 0f..10f
+                )
+                Text("$beepsBeforeSet", fontSize = 14.sp)
+            }
+        }
+        // Кнопки "Назад" и "Сохранить"
+//        IconButton(
+//            onClick = { onBack() },
+//            modifier = Modifier.align(Alignment.BottomStart).padding(16.dp)
+//        ) {
+//            Icon(Icons.Default.ArrowBack, contentDescription = "Назад")
+//        }
+        IconButton(
+            onClick = {
+                val newSettings = Settings(
+                    volume = volume.toInt(),
+                    language = selectedLanguage,
+                    voice = selectedVoice,
+                    prepTime = prepTime,
+                    beepsBeforeStart = beepsBeforeStart.toInt(),
+                    beepsBeforeSet = beepsBeforeSet.toInt()
+                )
+                onSave(newSettings)
+            },
+            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)
+        ) {
+            Icon(Icons.Default.Check, contentDescription = "Сохранить")
         }
     }
 }
