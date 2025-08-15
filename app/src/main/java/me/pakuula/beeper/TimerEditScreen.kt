@@ -6,7 +6,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,11 +23,11 @@ fun TimerEditScreen(
     isNameUnique: (String) -> Boolean
 ) {
     var title by remember { mutableStateOf(TextFieldValue(preset.title)) }
-    var secondsPerRep by remember { mutableStateOf(preset.secondsPerRep) }
-    var reps by remember { mutableStateOf(preset.reps) }
-    var restSeconds by remember { mutableStateOf(preset.restSeconds) }
-    var sets by remember { mutableStateOf(preset.sets) }
-    var prepTime by remember { mutableStateOf(preset.prepTime) }
+    var secondsPerRep by remember { mutableIntStateOf(preset.secondsPerRep) }
+    var reps by remember { mutableIntStateOf(preset.reps) }
+    var restSeconds by remember { mutableIntStateOf(preset.restSeconds) }
+    var sets by remember { mutableIntStateOf(preset.sets) }
+    var prepTime by remember { mutableIntStateOf(preset.prepTime) }
     var showNameError by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
 

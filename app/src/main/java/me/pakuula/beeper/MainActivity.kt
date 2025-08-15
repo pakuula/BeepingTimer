@@ -34,9 +34,7 @@ import me.pakuula.beeper.theme.BeeperTheme
 fun TimerList(
     timers: List<TimerPreset>,
     onPresetClick: (TimerPreset) -> Unit,
-    onEdit: (TimerPreset) -> Unit,
-    onDelete: (TimerPreset) -> Unit,
-    isNameUnique: (String) -> Boolean
+    onEdit: (TimerPreset) -> Unit
 ) {
     Log.i("EditLog", "TimerList called with ${timers.size} presets")
     timers.forEach { Log.i("EditLog", "- ${it.title}") }
@@ -103,12 +101,7 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onEdit = { preset ->
                                     navController.navigate("edit/${Uri.encode(preset.title)}")
-                                },
-                                onDelete = { deleted ->
-                                    timers.removeAll { it.title == deleted.title }
-                                    TimerStorage.saveTimers(this@MainActivity, timers)
-                                },
-                                isNameUnique = { name -> timers.none { it.title == name } }
+                                }
                                 // для передачи в TimerPresetWidget
                             )
                         }

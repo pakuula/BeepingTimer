@@ -3,6 +3,7 @@ package me.pakuula.beeper
 import android.content.Context
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import androidx.core.content.edit
 
 object TimerStorage {
     private const val PREFS_NAME = "timer_prefs"
@@ -12,7 +13,7 @@ object TimerStorage {
     fun saveTimers(context: Context, timers: List<TimerPreset>) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val json = gson.toJson(timers)
-        prefs.edit().putString(KEY_TIMERS, json).apply()
+        prefs.edit { putString(KEY_TIMERS, json) }
     }
 
     fun loadTimers(context: Context): List<TimerPreset> {
