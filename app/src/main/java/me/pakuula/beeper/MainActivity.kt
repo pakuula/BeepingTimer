@@ -1,4 +1,4 @@
-package com.example.myapplication
+package me.pakuula.beeper
 
 import android.content.Intent
 import android.os.Bundle
@@ -19,18 +19,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.example.myapplication.ui.theme.MyApplicationTheme
+import me.pakuula.beeper.theme.MyApplicationTheme
 
-// Таймерная модель
-//data class TimerPreset(
-//    val title: String, // Название пресета
-//    // Параметры таймера
-//    val secondsPerRep: Int, // Время на одно повторение в секундах
-//    val reps: Int, // Количество повторений
-//    val restSeconds: Int, // Время отдыха между повторениями в секундах
-//    val sets: Int, // Количество подходов
-//    val prepTime: Int = 7 // Время подготовки по умолчанию
-//)
 
 val timerPresets = listOf(
     TimerPreset("6 сек/8 повторов/50 сек/4 подхода", 6, 8, 50, 4),

@@ -1,17 +1,36 @@
-package com.example.myapplication
+package me.pakuula.beeper
 
+//noinspection SuspiciousImport
+import android.R
 import android.media.AudioManager
 import android.media.ToneGenerator
 import android.os.Bundle
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -19,17 +38,13 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.myapplication.ui.theme.MyApplicationTheme
-import android.R
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.PlayArrow
-// import androidx.compose.material.icons.filled.Pause as PauseIcon
-import androidx.compose.material3.Icon
+import me.pakuula.beeper.theme.MyApplicationTheme
+import kotlinx.coroutines.delay
 
 class ExerciseActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         val secondsPerRep = intent.getIntExtra("secondsPerRep", 6)
         val reps = intent.getIntExtra("reps", 8)
         val restSeconds = intent.getIntExtra("restSeconds", 50)
@@ -69,7 +84,7 @@ suspend fun doExercise(
                     toneGen.startTone(
                         ToneGenerator.TONE_PROP_BEEP,
                         100
-                    ); kotlinx.coroutines.delay(100)
+                    ); delay(100)
                 }
             } else if (timeLeft == secondsPerRep / 2) {
                 // Двойной бип в середине повторения
@@ -77,14 +92,14 @@ suspend fun doExercise(
                     toneGen.startTone(
                         ToneGenerator.TONE_PROP_BEEP,
                         100
-                    ); kotlinx.coroutines.delay(100)
+                    ); delay(100)
                 }
             } else {
                 // Обычный бип каждую секунду
                 toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 100)
             }
             onTimeLeftChange(timeLeft)
-            kotlinx.coroutines.delay(1000)
+            delay(1000)
             if (isPaused()) {
                 doPauseInExercise(isPaused, timeLeft, onTimeLeftChange)
             }
@@ -104,7 +119,7 @@ suspend fun doPauseInExercise(
 ) {
     while (isPaused()) {
         onTimeLeftChange(timeLeft)
-        kotlinx.coroutines.delay(100)
+        delay(100)
     }
 }
 
@@ -120,7 +135,7 @@ suspend fun doRest(
             toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 100)
         }
         onTimeLeftChange(timeLeft)
-        kotlinx.coroutines.delay(1000)
+        delay(1000)
         if (isPaused()) {
             timeLeft = doPauseInRest(isPaused, timeLeft)
         }
@@ -132,7 +147,7 @@ suspend fun doRest(
 suspend fun doPauseInRest(isPaused: () -> Boolean, timeLeft: Int): Int {
     var currentTimeLeft = timeLeft
     while (isPaused()) {
-        kotlinx.coroutines.delay(100)
+        delay(100)
     }
     return currentTimeLeft
 }
@@ -238,7 +253,7 @@ fun ExerciseScreen(
         if (!finished) {
             Button(
                 onClick = { isPaused = !isPaused },
-                shape = androidx.compose.foundation.shape.CircleShape,
+                shape = CircleShape,
                 modifier = Modifier
                     .height(120.dp)
                     .width(120.dp)

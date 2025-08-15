@@ -1,4 +1,4 @@
-package com.example.myapplication
+package me.pakuula.beeper
 
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.clickable
