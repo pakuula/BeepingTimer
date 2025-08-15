@@ -33,6 +33,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
@@ -49,6 +50,7 @@ class ExerciseActivity : ComponentActivity() {
         val restSeconds = intent.getIntExtra("restSeconds", 50)
         val sets = intent.getIntExtra("sets", 4)
         val prepTime = intent.getIntExtra("prepTime", 7)
+        val settings = SettingsStorage.load(this)
         setContent {
             BeeperTheme {
                 ExerciseScreen(
@@ -56,7 +58,8 @@ class ExerciseActivity : ComponentActivity() {
                     reps = reps,
                     restSeconds = restSeconds,
                     sets = sets,
-                    prepTime = prepTime
+                    prepTime = prepTime,
+                    volume = settings.volume
                 )
             }
         }
@@ -131,11 +134,12 @@ suspend fun doRest(
     restSeconds: Int,
     toneGen: ToneGenerator,
     isPaused: () -> Boolean,
-    onTimeLeftChange: (Int) -> Unit
+    onTimeLeftChange: (Int) -> Unit,
+    beepBeforeStartCount: Int
 ) {
     var timeLeft = restSeconds
     while (timeLeft > 0) {
-        if (timeLeft <= 5) {
+        if (timeLeft <= beepBeforeStartCount) {
             toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 100)
         }
         onTimeLeftChange(timeLeft)
@@ -162,8 +166,10 @@ fun ExerciseScreen(
     reps: Int,
     restSeconds: Int,
     sets: Int,
-    prepTime: Int
+    prepTime: Int,
+    volume: Int
 ) {
+    val settings = SettingsStorage.load(LocalContext.current)
     var isPreparation by remember { mutableStateOf(true) }
     var prepTimeLeft by remember { mutableIntStateOf(prepTime) }
     var currentSet by remember { mutableIntStateOf(1) }
@@ -178,7 +184,7 @@ fun ExerciseScreen(
         isRest -> Color(0xFF90CAF9)
         else -> Color(0xFFA5D6A7)
     }
-    val toneGen = remember { ToneGenerator(AudioManager.STREAM_MUSIC, 100) }
+    val toneGen = remember { ToneGenerator(AudioManager.STREAM_MUSIC, volume) }
 
     LaunchedEffect(currentSet, isRest, isPaused, finished, isPreparation) {
         if (!finished) {
@@ -187,7 +193,8 @@ fun ExerciseScreen(
                     prepTimeLeft,
                     toneGen,
                     isPaused = { isPaused },
-                    onTimeLeftChange = { left -> prepTimeLeft = left }
+                    onTimeLeftChange = { left -> prepTimeLeft = left },
+                    beepBeforeStartCount = settings.beepsBeforeStart
                 )
                 isPreparation = false
             } else if (!isRest) {
@@ -218,7 +225,8 @@ fun ExerciseScreen(
                     restTimeLeft,
                     toneGen,
                     isPaused = { isPaused },
-                    onTimeLeftChange = { left -> restTimeLeft = left; timeLeft = left }
+                    onTimeLeftChange = { left -> restTimeLeft = left; timeLeft = left },
+                    beepBeforeStartCount = settings.beepsBeforeSet
                 )
                 isRest = false
                 timeLeft = secondsPerRep

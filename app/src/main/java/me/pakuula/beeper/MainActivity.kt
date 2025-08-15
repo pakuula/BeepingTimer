@@ -214,6 +214,7 @@ class MainActivity : ComponentActivity() {
                         }
                         // add новый таймер
                         composable("add") {
+                            val settings = remember { SettingsStorage.load(this@MainActivity) }
                             val defaultName = "Таймер ${timers.size + 1}"
                             val defaultPreset = TimerPreset(
                                 UUID.randomUUID().toString(),
@@ -221,7 +222,8 @@ class MainActivity : ComponentActivity() {
                                 8, // secondsPerRep
                                 6, // reps
                                 50, // restSeconds
-                                4 // sets
+                                4, // sets
+                                settings.prepTime // использовать настройку
                             )
                             TimerEditScreen(
                                 preset = defaultPreset,
@@ -378,13 +380,7 @@ fun SettingsScreen(
                 Text("$beepsBeforeSet", fontSize = 14.sp)
             }
         }
-        // Кнопки "Назад" и "Сохранить"
-//        IconButton(
-//            onClick = { onBack() },
-//            modifier = Modifier.align(Alignment.BottomStart).padding(16.dp)
-//        ) {
-//            Icon(Icons.Default.ArrowBack, contentDescription = "Назад")
-//        }
+        // Кнопка "Сохранить"
         IconButton(
             onClick = {
                 val newSettings = Settings(
@@ -392,8 +388,8 @@ fun SettingsScreen(
                     language = selectedLanguage,
                     voice = selectedVoice,
                     prepTime = prepTime,
-                    beepsBeforeStart = beepsBeforeStart.toInt(),
-                    beepsBeforeSet = beepsBeforeSet.toInt()
+                    beepsBeforeStart = beepsBeforeStart,
+                    beepsBeforeSet = beepsBeforeSet
                 )
                 onSave(newSettings)
             },
