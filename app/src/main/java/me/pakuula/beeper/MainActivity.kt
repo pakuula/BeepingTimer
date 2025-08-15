@@ -170,11 +170,6 @@ class MainActivity : ComponentActivity() {
                                             popUpTo("home") { inclusive = true }
                                         }
                                     },
-//                                    onCancel = {
-//                                        navController.navigate("home") {
-//                                            popUpTo("home") { inclusive = true }
-//                                        }
-//                                    },
                                     isNameUnique = { name -> timers.none { it.title == name && it.id != preset.id } },
                                     isNew = false // таймер не новый
                                 )
@@ -205,11 +200,6 @@ class MainActivity : ComponentActivity() {
                                     }
                                 },
                                 onDelete = {}, // не показывать кнопку удаления
-//                                onCancel = {
-//                                    navController.navigate("home") {
-//                                        popUpTo("home") { inclusive = true }
-//                                    }
-//                                },
                                 isNameUnique = { name -> timers.none { it.title == name } },
                                 isNew = true // таймер новый
                             )
