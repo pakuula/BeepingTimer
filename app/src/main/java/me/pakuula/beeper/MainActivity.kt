@@ -45,8 +45,7 @@ import androidx.core.view.WindowCompat
 fun TimerList(
     timers: List<TimerPreset>,
     onPresetClick: (TimerPreset) -> Unit,
-    onEdit: (TimerPreset) -> Unit,
-    onAdd: () -> Unit // добавлен обработчик для кнопки добавления
+    onEdit: (TimerPreset) -> Unit
 ) {
     if (timers.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize()) {
@@ -55,13 +54,6 @@ fun TimerList(
                 modifier = Modifier.align(Alignment.Center),
                 fontSize = 20.sp
             )
-            FloatingActionButton(
-                onClick = onAdd,
-                modifier = Modifier.align(Alignment.BottomEnd).padding(24.dp).navigationBarsPadding(),
-                containerColor = Color(0xFF2196F3)
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Добавить таймер", tint = Color.White)
-            }
         }
     } else {
         LazyColumn(
@@ -130,17 +122,14 @@ class MainActivity : ComponentActivity() {
                                     },
                                     onEdit = { preset ->
                                         navController.navigate("edit/${preset.id}")
-                                    },
-                                    onAdd = { navController.navigate("add") }
-                                )
-                                if (timers.isNotEmpty()) {
-                                    FloatingActionButton(
-                                        onClick = { navController.navigate("add") },
-                                        modifier = Modifier.align(Alignment.BottomEnd).padding(24.dp).navigationBarsPadding(),
-                                        containerColor = Color(0xFF2196F3)
-                                    ) {
-                                        Icon(Icons.Default.Add, contentDescription = "Добавить таймер", tint = Color.White)
                                     }
+                                )
+                                FloatingActionButton(
+                                    onClick = { navController.navigate("add") },
+                                    modifier = Modifier.align(Alignment.BottomEnd).padding(24.dp).navigationBarsPadding(),
+                                    containerColor = Color(0xFF2196F3)
+                                ) {
+                                    Icon(Icons.Default.Add, contentDescription = "Добавить таймер", tint = Color.White)
                                 }
                             }
                         }
