@@ -1,7 +1,9 @@
 package me.pakuula.beeper
 
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -13,37 +15,47 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.navigation.NavController
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument // Исправленный импорт
 import me.pakuula.beeper.theme.BeeperTheme
 
-
-val timerPresets = listOf(
-    TimerPreset("6 сек/8 повторов/50 сек/4 подхода", 6, 8, 50, 4),
-    TimerPreset("8 сек/6 повторов/50 сек/4 подхода", 8, 6, 50, 4),
-    TimerPreset("6 сек/8 повторов/8 сек/8 подходов", 6, 8, 8, 8),
-    TimerPreset("8 сек/6 повторов/8 сек/8 подходов", 8, 6, 8, 8),
-    TimerPreset("2 сек/1 повтор/2 сек/2 подхода", 2, 1, 2, 2)
-)
-
 @Composable
-fun TimerList(onPresetClick: (TimerPreset) -> Unit) {
-    val scrollState = rememberScrollState()
-    Column(
+fun TimerList(
+    timers: List<TimerPreset>,
+    onPresetClick: (TimerPreset) -> Unit,
+    onEdit: (TimerPreset) -> Unit,
+    onDelete: (TimerPreset) -> Unit,
+    isNameUnique: (String) -> Boolean,
+    navController: NavController // Добавлено для передачи в TimerPresetWidget
+) {
+    Log.i("EditLog", "TimerList called with ${timers.size} presets")
+    timers.forEach { Log.i("EditLog", "- ${it.title}") }
+    LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(scrollState)
             .padding(WindowInsets.statusBars.asPaddingValues())
             .padding(16.dp)
     ) {
-        timerPresets.forEach { preset ->
+        items(timers, key = { it.title }) { preset ->
             TimerPresetWidget(
                 preset = preset,
-                onStart = { onPresetClick(it) }
+                onStart = { onPresetClick(it) },
+                onEdit = onEdit,
+                onDelete = onDelete,
+                isNameUnique = isNameUnique
             )
             Spacer(modifier = Modifier.height(12.dp))
         }
@@ -54,18 +66,95 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        Log.i("EditLog", "onCreate called")
+        // Инициализация таймеров
+        if (TimerStorage.isFirstLaunch(this)) {
+            val defaultTimers = listOf(
+                TimerPreset("6 сек/8 повторов/50 сек/4 подхода", 6, 8, 50, 4),
+                TimerPreset("8 сек/6 повторов/50 сек/4 подхода", 8, 6, 50, 4),
+                TimerPreset("6 сек/8 повторов/8 сек/8 подходов", 6, 8, 8, 8),
+                TimerPreset("8 сек/6 повторов/8 сек/8 подходов", 8, 6, 8, 8)
+            )
+            TimerStorage.saveTimers(this, defaultTimers)
+        }
         setContent {
             BeeperTheme {
+                Log.i("EditLog", "setContent called")
+                val timers = remember { mutableStateListOf<TimerPreset>() }
+                val navController = rememberNavController()
+                // Загрузка таймеров из конфигурации
+                LaunchedEffect(Unit) {
+                    timers.clear()
+                    timers.addAll(TimerStorage.loadTimers(this@MainActivity))
+                }
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    TimerList { preset ->
-                        val intent = Intent(this, ExerciseActivity::class.java).apply {
-                            putExtra("secondsPerRep", preset.secondsPerRep)
-                            putExtra("reps", preset.reps)
-                            putExtra("restSeconds", preset.restSeconds)
-                            putExtra("sets", preset.sets)
-                            putExtra("prepTime", preset.prepTime)
+                    NavHost(
+                        navController = navController,
+                        startDestination = "home"
+                    ) {
+                        composable("home") {
+                            Log.i("EditLog", "Navigating to home")
+                            TimerList(
+                                timers = timers,
+                                onPresetClick = { preset ->
+                                    val intent = Intent(this@MainActivity, ExerciseActivity::class.java).apply {
+                                        putExtra("secondsPerRep", preset.secondsPerRep)
+                                        putExtra("reps", preset.reps)
+                                        putExtra("restSeconds", preset.restSeconds)
+                                        putExtra("sets", preset.sets)
+                                        putExtra("prepTime", preset.prepTime)
+                                    }
+                                    startActivity(intent)
+                                },
+                                onEdit = { preset ->
+                                    navController.navigate("edit/${Uri.encode(preset.title)}")
+                                },
+                                onDelete = { deleted ->
+                                    timers.removeAll { it.title == deleted.title }
+                                    TimerStorage.saveTimers(this@MainActivity, timers)
+                                },
+                                isNameUnique = { name -> timers.none { it.title == name } },
+                                navController = navController // для передачи в TimerPresetWidget
+                            )
                         }
-                        startActivity(intent)
+                        composable(
+                            "edit/{timerTitle}",
+                            arguments = listOf(navArgument("timerTitle") { type = NavType.StringType })
+                        ) { backStackEntry ->
+                            val timerTitle = backStackEntry.arguments?.getString("timerTitle") ?: ""
+                            val decodedTitle = Uri.decode(timerTitle)
+                            val preset = timers.find { it.title == decodedTitle }
+                            if (preset != null) {
+                                TimerEditScreen(
+                                    preset = preset,
+                                    onSave = { edited ->
+                                        val idx = timers.indexOfFirst { it.title == preset.title }
+                                        if (idx >= 0) timers[idx] = edited
+                                        else timers.add(edited)
+                                        TimerStorage.saveTimers(this@MainActivity, timers)
+                                        navController.navigate("home") {
+                                            popUpTo("home") { inclusive = true }
+                                        }
+                                    },
+                                    onDelete = { deleted ->
+                                        timers.removeAll { it.title == deleted.title }
+                                        TimerStorage.saveTimers(this@MainActivity, timers)
+                                        navController.navigate("home") {
+                                            popUpTo("home") { inclusive = true }
+                                        }
+                                    },
+                                    onCancel = {
+                                        navController.navigate("home") {
+                                            popUpTo("home") { inclusive = true }
+                                        }
+                                    },
+                                    isNameUnique = { name -> timers.none { it.title == name || (preset.title == name) } }
+                                )
+                            } else {
+                                // Если таймер не найден, просто возвращаемся назад
+                                LaunchedEffect(Unit) { navController.popBackStack() }
+                            }
+                        }
                     }
                 }
             }

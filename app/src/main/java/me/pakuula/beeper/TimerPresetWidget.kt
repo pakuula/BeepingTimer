@@ -1,5 +1,6 @@
 package me.pakuula.beeper
 
+import android.util.Log
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -29,6 +30,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import me.pakuula.beeper.TimerEditScreen
 
 // Модель пресета
 data class TimerPreset(
@@ -44,8 +46,12 @@ data class TimerPreset(
 @Composable
 fun TimerPresetWidget(
     preset: TimerPreset,
-    onStart: (TimerPreset) -> Unit
+    onStart: (TimerPreset) -> Unit,
+    onEdit: (TimerPreset) -> Unit = {},
+    onDelete: (TimerPreset) -> Unit = {},
+    isNameUnique: (String) -> Boolean = { true }
 ) {
+    Log.i("EditLog", "TimerPresetWidget called for ${preset.title}")
     var expanded by remember { mutableStateOf(false) }
     Card(
         modifier = Modifier
@@ -86,7 +92,7 @@ fun TimerPresetWidget(
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
                     IconButton(
-                        onClick = { /* пока ничего */ },
+                        onClick = { onEdit(preset) },
                         modifier = Modifier.size(56.dp)
                     ) {
                         Icon(
