@@ -22,7 +22,6 @@ import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -31,7 +30,6 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
@@ -276,6 +274,7 @@ fun SettingsScreen(
     var voiceExpanded by remember { mutableStateOf(false) }
     val voices = listOf("default", "male", "female")
     var selectedVoice by remember { mutableStateOf(settings.voice) }
+    var reverseRepCount by remember { mutableStateOf(settings.reverseRepCount) }
     Box(modifier = Modifier
         .fillMaxSize()
         .padding(WindowInsets.statusBars.asPaddingValues())
@@ -379,23 +378,32 @@ fun SettingsScreen(
                 )
                 Text("$beepsBeforeSet", fontSize = 14.sp)
             }
-        }
-        // Кнопка "Сохранить"
-        IconButton(
-            onClick = {
-                val newSettings = Settings(
-                    volume = volume.toInt(),
-                    language = selectedLanguage,
-                    voice = selectedVoice,
-                    prepTime = prepTime,
-                    beepsBeforeStart = beepsBeforeStart,
-                    beepsBeforeSet = beepsBeforeSet
+            item {
+                Text("Отсчёт повторов в обратном порядке", fontSize = 16.sp)
+                androidx.compose.material3.Switch(
+                    checked = reverseRepCount,
+                    onCheckedChange = { reverseRepCount = it }
                 )
-                onSave(newSettings)
-            },
-            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)
-        ) {
-            Icon(Icons.Default.Check, contentDescription = "Сохранить")
+                Text(if (reverseRepCount) "Включено" else "Выключено", fontSize = 14.sp)
+            }
+            item {
+                Spacer(modifier = Modifier.height(24.dp))
+                androidx.compose.material3.Button(onClick = {
+                    onSave(
+                        settings.copy(
+                            volume = volume.toInt(),
+                            prepTime = prepTime,
+                            beepsBeforeStart = beepsBeforeStart,
+                            beepsBeforeSet = beepsBeforeSet,
+                            language = selectedLanguage,
+                            voice = selectedVoice,
+                            reverseRepCount = reverseRepCount
+                        )
+                    )
+                }) {
+                    Text("Сохранить", fontSize = 18.sp)
+                }
+            }
         }
     }
 }

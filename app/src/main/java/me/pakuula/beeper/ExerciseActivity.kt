@@ -8,10 +8,9 @@ import android.media.ToneGenerator
 import android.media.ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD
 import android.media.ToneGenerator.TONE_PROP_BEEP
 import android.os.Bundle
-import android.view.WindowManager
 import android.speech.tts.TextToSpeech
 import android.speech.tts.TextToSpeech.QUEUE_FLUSH
-import java.util.Locale
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
@@ -45,9 +44,12 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import me.pakuula.beeper.theme.BeeperTheme
 import me.pakuula.beeper.util.Work
+import java.util.Locale
 
 data class TimerConfig(
     val secondsPerRep: Int,
@@ -57,6 +59,7 @@ data class TimerConfig(
     val beepsBeforeSet: Int,
     val toneGen: ToneGenerator,
     val textToSpeech: TextToSpeech,
+    val reverseRepCount: Boolean
 )
 
 class ExerciseActivity : ComponentActivity() {
@@ -153,7 +156,8 @@ class ExerciseActivity : ComponentActivity() {
                 beepsBeforeStart = settings.beepsBeforeStart,
                 beepsBeforeSet = settings.beepsBeforeSet,
                 toneGen = toneGen.value,
-                textToSpeech = textToSpeech
+                textToSpeech = textToSpeech,
+                reverseRepCount = settings.reverseRepCount,
             )
             if (!isPaused) {
                 workInfo = runExercise(
@@ -304,6 +308,7 @@ suspend fun doRest(
     }
 }
 
+@OptIn(DelicateCoroutinesApi::class)
 suspend fun runExercise(
     workInfo: Work,
     timerConfig: TimerConfig,
@@ -353,28 +358,25 @@ suspend fun runExercise(
     while (timeLeft > 0) {
         when (timeLeft) {
             timerConfig.secondsPerRep -> {
-                timerConfig.textToSpeech.speak(
-                    workInfo.currentRep.toString(),
-                    QUEUE_FLUSH,
-                    null,
-                    null
-                )
-                //                        repeat(2) {
-                //                            toneGen.startTone(
-                //                                ToneGenerator.TONE_PROP_BEEP,
-                //                                100
-                //                            ); delay(100)
-                //                        }
+                val repToSpeak = if (timerConfig.reverseRepCount) {
+                    workInfo.maxRep - workInfo.currentRep + 1
+                } else {
+                    workInfo.currentRep
+                }
+                // Запуск сигнала в отдельной корутине, не блокируя suspend-функцию
+                kotlinx.coroutines.GlobalScope.launch {
+                    timerConfig.textToSpeech.speak(
+                        repToSpeak.toString(),
+                        QUEUE_FLUSH,
+                        null,
+                        null
+                    )
+                }
             }
 
             timerConfig.secondsPerRep / 2 -> {
                 // Двойной бип в середине повторения
-                repeat(2) {
-                    timerConfig.toneGen.startTone(
-                        TONE_PROP_BEEP,
-                        100
-                    ); delay(100)
-                }
+                timerConfig.toneGen.startTone(TONE_CDMA_ALERT_CALL_GUARD, 100)
             }
 
             else -> {
