@@ -39,11 +39,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -64,16 +64,24 @@ data class TimerConfig(
 
 class ExerciseActivity : ComponentActivity() {
     private lateinit var textToSpeech: TextToSpeech
+    private lateinit var toneGen: ToneGenerator
+
+    private var secondsPerRep = 6
+    private var reps = 8
+    private var restSeconds = 50
+    private var sets = 7
+    private var prepTime = 7
+    private var settings: Settings = Settings()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        val secondsPerRep = intent.getIntExtra("secondsPerRep", 6)
-        val reps = intent.getIntExtra("reps", 8)
-        val restSeconds = intent.getIntExtra("restSeconds", 50)
-        val sets = intent.getIntExtra("sets", 4)
-        val prepTime = intent.getIntExtra("prepTime", 7)
-        val settings = SettingsStorage.load(this)
+        secondsPerRep = intent.getIntExtra("secondsPerRep", 6)
+        reps = intent.getIntExtra("reps", 8)
+        restSeconds = intent.getIntExtra("restSeconds", 50)
+        sets = intent.getIntExtra("sets", 4)
+        prepTime = intent.getIntExtra("prepTime", 7)
+        settings = SettingsStorage.load(this)
         textToSpeech = TextToSpeech(this) { status ->
             if (status == TextToSpeech.SUCCESS) {
                 textToSpeech.language = Locale.getDefault()
@@ -81,14 +89,7 @@ class ExerciseActivity : ComponentActivity() {
         }
         setContent {
             BeeperTheme {
-                ExerciseScreen(
-                    secondsPerRep = secondsPerRep,
-                    reps = reps,
-                    restSeconds = restSeconds,
-                    sets = sets,
-                    prepTime = prepTime,
-                    volume = settings.volume
-                )
+                ExerciseScreen()
             }
         }
     }
@@ -101,15 +102,7 @@ class ExerciseActivity : ComponentActivity() {
 
     @SuppressLint("ConfigurationScreenWidthHeight")
     @Composable
-    fun ExerciseScreen(
-        secondsPerRep: Int,
-        reps: Int,
-        restSeconds: Int,
-        sets: Int,
-        prepTime: Int,
-        volume: Int
-    ) {
-        val settings = SettingsStorage.load(LocalContext.current)
+    fun ExerciseScreen() {
         var workInfo by remember {
             mutableStateOf(
                 Work(
@@ -143,7 +136,7 @@ class ExerciseActivity : ComponentActivity() {
         }
         val toneGen = remember {
             mutableStateOf(
-            ToneGenerator(AudioManager.STREAM_MUSIC, volume)
+                ToneGenerator(AudioManager.STREAM_MUSIC, settings.volume)
             )
         }
 
@@ -289,127 +282,124 @@ class ExerciseActivity : ComponentActivity() {
             }
         }
     }
-}
 
-suspend fun doRest(
-    restSeconds: Int,
-    toneGen: ToneGenerator,
-    beepBeforeStartCount: Int,
-    onTimeLeftChange: (Int) -> Unit,
-) {
-    var timeLeft = restSeconds
-    while (timeLeft > 0) {
-        if (timeLeft <= beepBeforeStartCount) {
-            toneGen.startTone(TONE_PROP_BEEP, 100)
+    suspend fun doRest(
+        restSeconds: Int,
+        toneGen: ToneGenerator,
+        onTimeLeftChange: (Int) -> Unit,
+    ) {
+        var timeLeft = restSeconds
+        while (timeLeft > 0) {
+            if (timeLeft <= settings.beepsBeforeStart) {
+                toneGen.startTone(TONE_PROP_BEEP, 100)
+            }
+            onTimeLeftChange(timeLeft)
+            delay(1000)
+            timeLeft--
         }
-        onTimeLeftChange(timeLeft)
-        delay(1000)
-        timeLeft--
     }
-}
 
-@OptIn(DelicateCoroutinesApi::class)
-suspend fun runExercise(
-    workInfo: Work,
-    timerConfig: TimerConfig,
-    timeLeft: Int,
-    onTimeLeftChange: (Int) -> Unit,
-): Work {
-    val updateWorkAndTimeLeft = {
-        val nextWork =  workInfo.next()
-        onTimeLeftChange(
-            when {
-                nextWork.isRest -> timerConfig.restSeconds
-                else -> timerConfig.secondsPerRep
-            }
-        )
-        nextWork
-    }
-    if (workInfo.isFinished) return workInfo
-    if (workInfo.isPreparation) {
-        doRest(
-            restSeconds = timeLeft,
-            toneGen = timerConfig.toneGen,
-            onTimeLeftChange = onTimeLeftChange,
-            beepBeforeStartCount = timerConfig.beepsBeforeStart,
-        )
-        return updateWorkAndTimeLeft()
-    }
-    if (workInfo.isRest) {
-        doRest(
-            restSeconds = timeLeft,
-            toneGen = timerConfig.toneGen,
-            beepBeforeStartCount = timerConfig.beepsBeforeSet,
-            onTimeLeftChange = onTimeLeftChange
-        )
-        return updateWorkAndTimeLeft()
-    }
-    if (workInfo.currentRep == 1 && timeLeft == timerConfig.secondsPerRep) {
-        // Начало подхода: длинный громкий сигнал
-        timerConfig.toneGen.startTone(TONE_CDMA_ALERT_CALL_GUARD, 500)
-        timerConfig.textToSpeech.speak(
-            "Поехали!",
-            QUEUE_FLUSH,
-            null,
-            null
-        )
-    }
-    var timeLeft = timeLeft
-    while (timeLeft > 0) {
-        when (timeLeft) {
-            timerConfig.secondsPerRep -> {
-                val repToSpeak = if (timerConfig.reverseRepCount) {
-                    workInfo.maxRep - workInfo.currentRep + 1
-                } else {
-                    workInfo.currentRep
+    @OptIn(DelicateCoroutinesApi::class)
+    suspend fun runExercise(
+        workInfo: Work,
+        timerConfig: TimerConfig,
+        timeLeft: Int,
+        onTimeLeftChange: (Int) -> Unit,
+    ): Work {
+        val updateWorkAndTimeLeft = {
+            val nextWork = workInfo.next()
+            onTimeLeftChange(
+                when {
+                    nextWork.isRest -> timerConfig.restSeconds
+                    else -> timerConfig.secondsPerRep
                 }
-                // Запуск сигнала в отдельной корутине, не блокируя suspend-функцию
-                kotlinx.coroutines.GlobalScope.launch {
-                    timerConfig.textToSpeech.speak(
-                        repToSpeak.toString(),
-                        QUEUE_FLUSH,
-                        null,
-                        null
-                    )
-                }
-            }
-
-            timerConfig.secondsPerRep / 2 -> {
-                // Двойной бип в середине повторения
-                timerConfig.toneGen.startTone(TONE_CDMA_ALERT_CALL_GUARD, 100)
-            }
-
-            else -> {
-                // Обычный бип каждую секунду
-                timerConfig.toneGen.startTone(TONE_PROP_BEEP, 100)
-            }
+            )
+            nextWork
         }
-        onTimeLeftChange(timeLeft)
-        delay(1000)
-
-        timeLeft--
-    }
-
-
-    // Конец подхода: длинный бип
-    if (workInfo.isLastRep()) {
-        timerConfig.toneGen.startTone(TONE_CDMA_ALERT_CALL_GUARD, 500)
-        if (workInfo.isVeryLastRep()) {
+        if (workInfo.isFinished) return workInfo
+        if (workInfo.isPreparation) {
+            doRest(
+                restSeconds = timeLeft,
+                toneGen = timerConfig.toneGen,
+                onTimeLeftChange = onTimeLeftChange,
+            )
+            return updateWorkAndTimeLeft()
+        }
+        if (workInfo.isRest) {
+            doRest(
+                restSeconds = timeLeft,
+                toneGen = timerConfig.toneGen,
+                onTimeLeftChange = onTimeLeftChange
+            )
+            return updateWorkAndTimeLeft()
+        }
+        if (workInfo.currentRep == 1 && timeLeft == timerConfig.secondsPerRep) {
+            // Начало подхода: длинный громкий сигнал
+            // timerConfig.toneGen.startTone(TONE_CDMA_ALERT_CALL_GUARD, 500)
             timerConfig.textToSpeech.speak(
-                "Упражнение завершено",
+                "Поехали!",
                 QUEUE_FLUSH,
                 null,
                 null
             )
         }
-        else {
-            timerConfig.textToSpeech.speak(
-                "Отдых",
-                QUEUE_FLUSH,
-                null,
-                null
-            )
+        var timeLeft = timeLeft
+        while (timeLeft > 0) {
+            when (timeLeft) {
+                timerConfig.secondsPerRep -> {
+                    val repToSpeak = if (timerConfig.reverseRepCount) {
+                        workInfo.maxRep - workInfo.currentRep + 1
+                    } else {
+                        workInfo.currentRep
+                    }
+                    // Запуск сигнала в отдельной корутине, не блокируя suspend-функцию
+                    lifecycleScope.launch {
+                        timerConfig.textToSpeech.speak(
+                            repToSpeak.toString(),
+                            QUEUE_FLUSH,
+                            null,
+                            null
+                        )
+                    }
+                }
+
+                timerConfig.secondsPerRep / 2 -> {
+                    // Двойной бип в середине повторения
+                    timerConfig.toneGen.startTone(TONE_CDMA_ALERT_CALL_GUARD, 100)
+                }
+
+                else -> {
+                    // Обычный бип каждую секунду
+                    timerConfig.toneGen.startTone(TONE_PROP_BEEP, 100)
+                }
+            }
+            onTimeLeftChange(timeLeft)
+            delay(1000)
+
+            timeLeft--
         }
+
+
+        // Конец подхода: длинный бип
+        if (workInfo.isLastRep()) {
+            timerConfig.toneGen.startTone(TONE_CDMA_ALERT_CALL_GUARD, 500)
+            if (workInfo.isVeryLastRep()) {
+                timerConfig.textToSpeech.speak(
+                    "Упражнение завершено",
+                    QUEUE_FLUSH,
+                    null,
+                    null
+                )
+            } else {
+                timerConfig.textToSpeech.speak(
+                    "Отдых $restSeconds секунд",
+                    QUEUE_FLUSH,
+                    null,
+                    null
+                )
+            }
+        }
+        return updateWorkAndTimeLeft()
     }
-    return updateWorkAndTimeLeft()
 }
+
