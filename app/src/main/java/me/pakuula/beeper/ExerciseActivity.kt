@@ -43,24 +43,11 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import me.pakuula.beeper.theme.BeeperTheme
 import me.pakuula.beeper.util.Work
 import java.util.Locale
-
-data class TimerConfig(
-    val secondsPerRep: Int,
-    val reps: Int,
-    val restSeconds: Int,
-    val beepsBeforeStart: Int,
-    val beepsBeforeSet: Int,
-    val toneGen: ToneGenerator,
-    val textToSpeech: TextToSpeech,
-    val reverseRepCount: Boolean
-)
 
 class ExerciseActivity : ComponentActivity() {
     private lateinit var textToSpeech: TextToSpeech
@@ -80,13 +67,14 @@ class ExerciseActivity : ComponentActivity() {
         reps = intent.getIntExtra("reps", 8)
         restSeconds = intent.getIntExtra("restSeconds", 50)
         sets = intent.getIntExtra("sets", 4)
-        prepTime = intent.getIntExtra("prepTime", 7)
         settings = SettingsStorage.load(this)
+        prepTime = settings.prepTime
         textToSpeech = TextToSpeech(this) { status ->
             if (status == TextToSpeech.SUCCESS) {
                 textToSpeech.language = Locale.getDefault()
             }
         }
+        toneGen = ToneGenerator(AudioManager.STREAM_MUSIC, settings.volume)
         setContent {
             BeeperTheme {
                 ExerciseScreen()
@@ -97,6 +85,7 @@ class ExerciseActivity : ComponentActivity() {
     override fun onDestroy() {
         super.onDestroy()
         textToSpeech.shutdown()
+        toneGen.release()
     }
 
 
@@ -134,29 +123,18 @@ class ExerciseActivity : ComponentActivity() {
             // Выполнение упражнения
             else -> Color(0xFFA5D6A7)
         }
-        val toneGen = remember {
-            mutableStateOf(
-                ToneGenerator(AudioManager.STREAM_MUSIC, settings.volume)
-            )
-        }
+//        val toneGen = remember {
+//            mutableStateOf(
+//                ToneGenerator(AudioManager.STREAM_MUSIC, settings.volume)
+//            )
+//        }
 
 
         LaunchedEffect(workInfo, isPaused) {
-            val timerConfig = TimerConfig(
-                secondsPerRep = secondsPerRep,
-                reps = reps,
-                restSeconds = restSeconds,
-                beepsBeforeStart = settings.beepsBeforeStart,
-                beepsBeforeSet = settings.beepsBeforeSet,
-                toneGen = toneGen.value,
-                textToSpeech = textToSpeech,
-                reverseRepCount = settings.reverseRepCount,
-            )
             if (!isPaused) {
                 workInfo = runExercise(
                     workInfo = workInfo,
                     timeLeft = timeLeft,
-                    timerConfig = timerConfig,
                 ) { newTimeLeft ->
                     timeLeft = newTimeLeft
                 }
@@ -285,7 +263,6 @@ class ExerciseActivity : ComponentActivity() {
 
     suspend fun doRest(
         restSeconds: Int,
-        toneGen: ToneGenerator,
         onTimeLeftChange: (Int) -> Unit,
     ) {
         var timeLeft = restSeconds
@@ -302,7 +279,6 @@ class ExerciseActivity : ComponentActivity() {
     @OptIn(DelicateCoroutinesApi::class)
     suspend fun runExercise(
         workInfo: Work,
-        timerConfig: TimerConfig,
         timeLeft: Int,
         onTimeLeftChange: (Int) -> Unit,
     ): Work {
@@ -310,33 +286,24 @@ class ExerciseActivity : ComponentActivity() {
             val nextWork = workInfo.next()
             onTimeLeftChange(
                 when {
-                    nextWork.isRest -> timerConfig.restSeconds
-                    else -> timerConfig.secondsPerRep
+                    nextWork.isRest -> restSeconds
+                    else -> secondsPerRep
                 }
             )
             nextWork
         }
         if (workInfo.isFinished) return workInfo
-        if (workInfo.isPreparation) {
+        if (workInfo.isPreparation || workInfo.isRest) {
             doRest(
                 restSeconds = timeLeft,
-                toneGen = timerConfig.toneGen,
                 onTimeLeftChange = onTimeLeftChange,
             )
             return updateWorkAndTimeLeft()
         }
-        if (workInfo.isRest) {
-            doRest(
-                restSeconds = timeLeft,
-                toneGen = timerConfig.toneGen,
-                onTimeLeftChange = onTimeLeftChange
-            )
-            return updateWorkAndTimeLeft()
-        }
-        if (workInfo.currentRep == 1 && timeLeft == timerConfig.secondsPerRep) {
+        if (workInfo.currentRep == 1 && timeLeft == secondsPerRep) {
             // Начало подхода: длинный громкий сигнал
-            // timerConfig.toneGen.startTone(TONE_CDMA_ALERT_CALL_GUARD, 500)
-            timerConfig.textToSpeech.speak(
+            // toneGen.startTone(TONE_CDMA_ALERT_CALL_GUARD, 500)
+            textToSpeech.speak(
                 "Поехали!",
                 QUEUE_FLUSH,
                 null,
@@ -346,31 +313,28 @@ class ExerciseActivity : ComponentActivity() {
         var timeLeft = timeLeft
         while (timeLeft > 0) {
             when (timeLeft) {
-                timerConfig.secondsPerRep -> {
-                    val repToSpeak = if (timerConfig.reverseRepCount) {
+                secondsPerRep -> {
+                    val repToSpeak = if (settings.reverseRepCount) {
                         workInfo.maxRep - workInfo.currentRep + 1
                     } else {
                         workInfo.currentRep
                     }
-                    // Запуск сигнала в отдельной корутине, не блокируя suspend-функцию
-                    lifecycleScope.launch {
-                        timerConfig.textToSpeech.speak(
-                            repToSpeak.toString(),
-                            QUEUE_FLUSH,
-                            null,
-                            null
-                        )
-                    }
+                    textToSpeech.speak(
+                        repToSpeak.toString(),
+                        QUEUE_FLUSH,
+                        null,
+                        null
+                    )
                 }
 
-                timerConfig.secondsPerRep / 2 -> {
+                secondsPerRep / 2 -> {
                     // Двойной бип в середине повторения
-                    timerConfig.toneGen.startTone(TONE_CDMA_ALERT_CALL_GUARD, 100)
+                    toneGen.startTone(TONE_CDMA_ALERT_CALL_GUARD, 100)
                 }
 
                 else -> {
                     // Обычный бип каждую секунду
-                    timerConfig.toneGen.startTone(TONE_PROP_BEEP, 100)
+                    toneGen.startTone(TONE_PROP_BEEP, 100)
                 }
             }
             onTimeLeftChange(timeLeft)
@@ -382,16 +346,16 @@ class ExerciseActivity : ComponentActivity() {
 
         // Конец подхода: длинный бип
         if (workInfo.isLastRep()) {
-            timerConfig.toneGen.startTone(TONE_CDMA_ALERT_CALL_GUARD, 500)
+            toneGen.startTone(TONE_CDMA_ALERT_CALL_GUARD, 500)
             if (workInfo.isVeryLastRep()) {
-                timerConfig.textToSpeech.speak(
+                textToSpeech.speak(
                     "Упражнение завершено",
                     QUEUE_FLUSH,
                     null,
                     null
                 )
             } else {
-                timerConfig.textToSpeech.speak(
+                textToSpeech.speak(
                     "Отдых $restSeconds секунд",
                     QUEUE_FLUSH,
                     null,

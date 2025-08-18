@@ -40,7 +40,6 @@ data class TimerPreset(
     val reps: Int, // Количество повторений
     val restSeconds: Int, // Время отдыха между повторениями в секундах
     val sets: Int, // Количество подходов
-    val prepTime: Int = 7 // Время подготовки по умолчанию
 )
 
 @Composable
@@ -82,7 +81,6 @@ fun TimerPresetWidget(
                 Text("Одно повторение: ${preset.secondsPerRep} сек")
                 Text("Число повторений: ${preset.reps}")
                 Text("Число подходов: ${preset.sets}")
-                Text("Подготовка: ${preset.prepTime} сек")
                 Text("Отдых: ${preset.restSeconds} сек")
                 Spacer(modifier = Modifier.height(16.dp))
                 Row(

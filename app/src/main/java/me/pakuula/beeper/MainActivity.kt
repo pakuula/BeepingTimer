@@ -30,6 +30,7 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
@@ -132,7 +133,6 @@ class MainActivity : ComponentActivity() {
                                             putExtra("reps", preset.reps)
                                             putExtra("restSeconds", preset.restSeconds)
                                             putExtra("sets", preset.sets)
-                                            putExtra("prepTime", preset.prepTime)
                                         }
                                         startActivity(intent)
                                     },
@@ -221,7 +221,6 @@ class MainActivity : ComponentActivity() {
                                 6, // reps
                                 50, // restSeconds
                                 4, // sets
-                                settings.prepTime // использовать настройку
                             )
                             TimerEditScreen(
                                 preset = defaultPreset,
@@ -303,7 +302,7 @@ fun SettingsScreen(
                         readOnly = true,
                         label = { Text("Язык") },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = languageExpanded) },
-                        modifier = Modifier.menuAnchor()
+                        modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable)
                     )
                     DropdownMenu(
                         expanded = languageExpanded,
@@ -333,7 +332,7 @@ fun SettingsScreen(
                         readOnly = true,
                         label = { Text("Голос") },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = voiceExpanded) },
-                        modifier = Modifier.menuAnchor()
+                        modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable)
                     )
                     DropdownMenu(
                         expanded = voiceExpanded,

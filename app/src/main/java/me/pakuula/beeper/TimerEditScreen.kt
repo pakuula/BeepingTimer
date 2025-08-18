@@ -26,7 +26,6 @@ fun TimerEditScreen(
     var reps by remember { mutableIntStateOf(preset.reps) }
     var restSeconds by remember { mutableIntStateOf(preset.restSeconds) }
     var sets by remember { mutableIntStateOf(preset.sets) }
-    var prepTime by remember { mutableIntStateOf(preset.prepTime) }
     var showNameError by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
@@ -65,10 +64,7 @@ fun TimerEditScreen(
                 Text("Количество подходов:", modifier = Modifier.weight(1f))
                 NumberPicker(value = sets, onValueChange = { sets = it }, range = 1..20)
             }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Время подготовки:", modifier = Modifier.weight(1f))
-                NumberPicker(value = prepTime, onValueChange = { prepTime = it }, range = 0..60)
-            }
+
             if (showNameError) {
                 Text("Имя таймера должно быть уникальным!", color = MaterialTheme.colorScheme.error)
             }
@@ -95,7 +91,6 @@ fun TimerEditScreen(
                             reps,
                             restSeconds,
                             sets,
-                            prepTime
                         )
                     )
                 }
@@ -125,7 +120,6 @@ fun TimerEditScreen(
                                 reps,
                                 restSeconds,
                                 sets,
-                                prepTime
                             )
                         )
                     }) { Text("Удалить") }
