@@ -58,7 +58,7 @@ class ExerciseActivity : ComponentActivity() {
     private var restSeconds = 50
     private var sets = 7
     private var prepTime = 7
-    private var settings: Settings = Settings()
+    private lateinit var settings: Settings
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -123,12 +123,6 @@ class ExerciseActivity : ComponentActivity() {
             // Выполнение упражнения
             else -> Color(0xFFA5D6A7)
         }
-//        val toneGen = remember {
-//            mutableStateOf(
-//                ToneGenerator(AudioManager.STREAM_MUSIC, settings.volume)
-//            )
-//        }
-
 
         LaunchedEffect(workInfo, isPaused) {
             if (!isPaused) {
@@ -292,39 +286,36 @@ class ExerciseActivity : ComponentActivity() {
             )
             nextWork
         }
-        if (workInfo.isFinished) return workInfo
+        if (workInfo.isFinished) {
+            // Упражнение завершено, ничего не делаем
+            return workInfo
+        }
         if (workInfo.isPreparation || workInfo.isRest) {
+            // Подготовка или отдых: отсчитываем время до завершения
             doRest(
                 restSeconds = timeLeft,
                 onTimeLeftChange = onTimeLeftChange,
             )
+            // Возвращаем управление в главную composable процедуру
             return updateWorkAndTimeLeft()
         }
-        if (workInfo.currentRep == 1 && timeLeft == secondsPerRep) {
-            // Начало подхода: длинный громкий сигнал
-            // toneGen.startTone(TONE_CDMA_ALERT_CALL_GUARD, 500)
-            textToSpeech.speak(
-                "Поехали!",
-                QUEUE_FLUSH,
-                null,
-                null
-            )
-        }
+        // else: подход к выполнению упражнения
         var timeLeft = timeLeft
         while (timeLeft > 0) {
             when (timeLeft) {
                 secondsPerRep -> {
-                    val repToSpeak = if (settings.reverseRepCount) {
-                        workInfo.maxRep - workInfo.currentRep + 1
+                    if (!settings.mute) {
+                        val repToSpeak = if (settings.reverseRepCount) {
+                            workInfo.maxRep - workInfo.currentRep + 1
+                        } else {
+                            workInfo.currentRep
+                        }
+                        val text = repToSpeak.toString()
+                        speak(text)
                     } else {
-                        workInfo.currentRep
+                        // Начало подхода: длинный громкий сигнал
+                        toneGen.startTone(TONE_CDMA_ALERT_CALL_GUARD, 200)
                     }
-                    textToSpeech.speak(
-                        repToSpeak.toString(),
-                        QUEUE_FLUSH,
-                        null,
-                        null
-                    )
                 }
 
                 secondsPerRep / 2 -> {
@@ -343,27 +334,25 @@ class ExerciseActivity : ComponentActivity() {
             timeLeft--
         }
 
-
         // Конец подхода: длинный бип
         if (workInfo.isLastRep()) {
             toneGen.startTone(TONE_CDMA_ALERT_CALL_GUARD, 500)
             if (workInfo.isVeryLastRep()) {
-                textToSpeech.speak(
-                    "Упражнение завершено",
-                    QUEUE_FLUSH,
-                    null,
-                    null
-                )
+                speak("Упражнение завершено")
             } else {
-                textToSpeech.speak(
-                    "Отдых $restSeconds секунд",
-                    QUEUE_FLUSH,
-                    null,
-                    null
-                )
+                speak("Отдых $restSeconds секунд")
             }
         }
         return updateWorkAndTimeLeft()
     }
-}
 
+    private fun speak(text: String) {
+        if (settings.mute) return
+        textToSpeech.speak(
+            text,
+            QUEUE_FLUSH,
+            null,
+            null
+        )
+    }
+}

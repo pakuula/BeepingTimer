@@ -11,7 +11,8 @@ import androidx.core.content.edit
     val prepTime: Int = 7,
     val beepsBeforeStart: Int = 5,
     val beepsBeforeSet: Int = 3,
-    val reverseRepCount: Boolean = true // Новый флаг
+    val reverseRepCount: Boolean = true, // Новый флаг
+    val mute: Boolean = false // Новый флаг для отключения голоса
 )
 
 object SettingsStorage {
@@ -23,17 +24,19 @@ object SettingsStorage {
     private const val BEEPS_BEFORE_START = "beepsBeforeStart"
     private const val BEEPS_BEFORE_SET = "beepsBeforeSet"
     private const val REVERSE_REP_COUNT = "reverseRepCount" // Новый ключ
+    private const val MUTE = "mute" // Новый ключ для mute
 
     fun save(context: Context, settings: Settings) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         prefs.edit {
-                putInt(VOLUME, settings.volume)
-                    .putString(LANGUAGE, settings.language)
-                    .putString(VOICE, settings.voice)
-                    .putInt(PREP_TIME, settings.prepTime)
-                    .putInt(BEEPS_BEFORE_START, settings.beepsBeforeStart)
-                    .putInt(BEEPS_BEFORE_SET, settings.beepsBeforeSet)
-                    .putBoolean(REVERSE_REP_COUNT, settings.reverseRepCount) // Сохраняем флаг
+            putInt(VOLUME, settings.volume)
+            putString(LANGUAGE, settings.language)
+            putString(VOICE, settings.voice)
+            putInt(PREP_TIME, settings.prepTime)
+            putInt(BEEPS_BEFORE_START, settings.beepsBeforeStart)
+            putInt(BEEPS_BEFORE_SET, settings.beepsBeforeSet)
+            putBoolean(REVERSE_REP_COUNT, settings.reverseRepCount) // Сохраняем флаг
+            putBoolean(MUTE, settings.mute) // Сохраняем mute
         }
     }
 
@@ -46,7 +49,8 @@ object SettingsStorage {
             prepTime = prefs.getInt(PREP_TIME, 7),
             beepsBeforeStart = prefs.getInt(BEEPS_BEFORE_START, 5),
             beepsBeforeSet = prefs.getInt(BEEPS_BEFORE_SET, 3),
-            reverseRepCount = prefs.getBoolean(REVERSE_REP_COUNT, true) // Загружаем флаг
+            reverseRepCount = prefs.getBoolean(REVERSE_REP_COUNT, true), // Загружаем флаг
+            mute = prefs.getBoolean(MUTE, false) // Загружаем mute
         )
     }
 }

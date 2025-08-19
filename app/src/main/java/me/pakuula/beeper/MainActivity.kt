@@ -96,14 +96,41 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         WindowCompat.setDecorFitsSystemWindows(window, false)
-        Log.i("EditLog", "onCreate called")
         // Инициализация таймеров
         if (TimerStorage.isFirstLaunch(this)) {
             val defaultTimers = listOf(
-                TimerPreset(UUID.randomUUID().toString(), "6 сек/8 повторов/50 сек/4 подхода", 6, 8, 50, 4),
-                TimerPreset(UUID.randomUUID().toString(), "8 сек/6 повторов/50 сек/4 подхода", 8, 6, 50, 4),
-                TimerPreset(UUID.randomUUID().toString(), "6 сек/8 повторов/8 сек/8 подходов", 6, 8, 8, 8),
-                TimerPreset(UUID.randomUUID().toString(), "8 сек/6 повторов/8 сек/8 подходов", 8, 6, 8, 8)
+                TimerPreset(
+                    id = UUID.randomUUID().toString(),
+                    title = "6 сек/8 повторов/50 сек/4 подхода",
+                    secondsPerRep = 6,
+                    reps = 8,
+                    restSeconds = 40,
+                    sets = 4
+                ),
+                TimerPreset(
+                    id = UUID.randomUUID().toString(),
+                    title = "8 сек/6 повторов/50 сек/4 подхода",
+                    secondsPerRep = 8,
+                    reps = 6,
+                    restSeconds = 40,
+                    sets = 4
+                ),
+                TimerPreset(
+                    id = UUID.randomUUID().toString(),
+                    title = "6 сек/8 повторов/8 сек/8 подходов",
+                    secondsPerRep = 6,
+                    reps = 8,
+                    restSeconds = 8,
+                    sets = 8
+                ),
+                TimerPreset(
+                    id = UUID.randomUUID().toString(),
+                    title = "8 сек/6 повторов/8 сек/8 подходов",
+                    secondsPerRep = 8,
+                    reps = 6,
+                    restSeconds = 8,
+                    sets = 8
+                )
             )
             TimerStorage.saveTimers(this, defaultTimers)
         }
@@ -114,7 +141,6 @@ class MainActivity : ComponentActivity() {
                 val navController = rememberNavController()
                 // Загрузка таймеров из конфигурации
                 LaunchedEffect(Unit) {
-                    Log.i("EditLog", "Loading timers")
                     timers.clear()
                     timers.addAll(TimerStorage.loadTimers(this@MainActivity))
                 }
@@ -128,7 +154,10 @@ class MainActivity : ComponentActivity() {
                                 TimerList(
                                     timers = timers,
                                     onPresetClick = { preset ->
-                                        val intent = Intent(this@MainActivity, ExerciseActivity::class.java).apply {
+                                        val intent = Intent(
+                                            this@MainActivity,
+                                            ExerciseActivity::class.java
+                                        ).apply {
                                             putExtra("secondsPerRep", preset.secondsPerRep)
                                             putExtra("reps", preset.reps)
                                             putExtra("restSeconds", preset.restSeconds)
@@ -153,7 +182,11 @@ class MainActivity : ComponentActivity() {
                                         onClick = { menuExpanded = true },
                                         containerColor = Color(0xFF2196F3)
                                     ) {
-                                        Icon(Icons.Default.MoreVert, contentDescription = "Меню", tint = Color.White)
+                                        Icon(
+                                            Icons.Default.MoreVert,
+                                            contentDescription = "Меню",
+                                            tint = Color.White
+                                        )
                                     }
                                     DropdownMenu(
                                         expanded = menuExpanded,
@@ -212,7 +245,6 @@ class MainActivity : ComponentActivity() {
                         }
                         // add новый таймер
                         composable("add") {
-                            val settings = remember { SettingsStorage.load(this@MainActivity) }
                             val defaultName = "Таймер ${timers.size + 1}"
                             val defaultPreset = TimerPreset(
                                 UUID.randomUUID().toString(),
@@ -274,11 +306,13 @@ fun SettingsScreen(
     val voices = listOf("default", "male", "female")
     var selectedVoice by remember { mutableStateOf(settings.voice) }
     var reverseRepCount by remember { mutableStateOf(settings.reverseRepCount) }
-    Box(modifier = Modifier
-        .fillMaxSize()
-        .padding(WindowInsets.statusBars.asPaddingValues())
-        .padding(WindowInsets.navigationBars.asPaddingValues())
-        .padding(16.dp)
+    var mute by remember { mutableStateOf(settings.mute) }
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(WindowInsets.statusBars.asPaddingValues())
+            .padding(WindowInsets.navigationBars.asPaddingValues())
+            .padding(16.dp)
     ) {
         LazyColumn(modifier = Modifier.fillMaxSize()) {
             item {
@@ -386,6 +420,14 @@ fun SettingsScreen(
                 Text(if (reverseRepCount) "Включено" else "Выключено", fontSize = 14.sp)
             }
             item {
+                Text("Отключить голосовые сообщения", fontSize = 16.sp)
+                androidx.compose.material3.Switch(
+                    checked = mute,
+                    onCheckedChange = { mute = it }
+                )
+                Text(if (mute) "Отключено" else "Включено", fontSize = 14.sp)
+            }
+            item {
                 Spacer(modifier = Modifier.height(24.dp))
                 androidx.compose.material3.Button(onClick = {
                     onSave(
@@ -396,7 +438,8 @@ fun SettingsScreen(
                             beepsBeforeSet = beepsBeforeSet,
                             language = selectedLanguage,
                             voice = selectedVoice,
-                            reverseRepCount = reverseRepCount
+                            reverseRepCount = reverseRepCount,
+                            mute = mute
                         )
                     )
                 }) {
