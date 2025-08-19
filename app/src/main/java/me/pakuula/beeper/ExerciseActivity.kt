@@ -1,7 +1,7 @@
 package me.pakuula.beeper
 
 //noinspection SuspiciousImport
-import android.R
+
 import android.annotation.SuppressLint
 import android.media.AudioManager
 import android.media.ToneGenerator
@@ -14,6 +14,8 @@ import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,8 +26,16 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.VolumeOff
+import androidx.compose.material.icons.automirrored.outlined.VolumeUp
+import androidx.compose.material.icons.outlined.Pause
+import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material.icons.outlined.SkipNext
+import androidx.compose.material.icons.outlined.SkipPrevious
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -39,7 +49,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -53,28 +64,28 @@ class ExerciseActivity : ComponentActivity() {
     private lateinit var textToSpeech: TextToSpeech
     private lateinit var toneGen: ToneGenerator
 
-    private var secondsPerRep = 6
-    private var reps = 8
-    private var restSeconds = 50
-    private var sets = 7
-    private var prepTime = 7
-    private lateinit var settings: Settings
+    private var SecondsPerRep = 6
+    private var RepNumber = 8
+    private var RestSeconds = 50
+    private var SetNumber = 7
+    private var PreparationSeconds = 7
+    private lateinit var AppSettings: Settings
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        secondsPerRep = intent.getIntExtra("secondsPerRep", 6)
-        reps = intent.getIntExtra("reps", 8)
-        restSeconds = intent.getIntExtra("restSeconds", 50)
-        sets = intent.getIntExtra("sets", 4)
-        settings = SettingsStorage.load(this)
-        prepTime = settings.prepTime
+        SecondsPerRep = intent.getIntExtra("secondsPerRep", 6)
+        RepNumber = intent.getIntExtra("reps", 8)
+        RestSeconds = intent.getIntExtra("restSeconds", 50)
+        SetNumber = intent.getIntExtra("sets", 4)
+        AppSettings = SettingsStorage.load(this)
+        PreparationSeconds = AppSettings.prepTime
         textToSpeech = TextToSpeech(this) { status ->
             if (status == TextToSpeech.SUCCESS) {
                 textToSpeech.language = Locale.getDefault()
             }
         }
-        toneGen = ToneGenerator(AudioManager.STREAM_MUSIC, settings.volume)
+        toneGen = ToneGenerator(AudioManager.STREAM_MUSIC, AppSettings.volume)
         setContent {
             BeeperTheme {
                 ExerciseScreen()
@@ -95,9 +106,9 @@ class ExerciseActivity : ComponentActivity() {
         var workInfo by remember {
             mutableStateOf(
                 Work(
-                    isPreparation = prepTime > 0,
-                    maxRep = reps,
-                    maxSet = sets,
+                    isPreparation = PreparationSeconds > 0,
+                    maxRep = RepNumber,
+                    maxSet = SetNumber,
                     currentRep = 1,
                     currentSet = 1,
                     isRest = false,
@@ -109,19 +120,45 @@ class ExerciseActivity : ComponentActivity() {
         var timeLeft by remember {
             mutableIntStateOf(
                 when {
-                    workInfo.isPreparation -> prepTime
-                    workInfo.isRest -> restSeconds
+                    workInfo.isPreparation -> PreparationSeconds
+                    workInfo.isRest -> RestSeconds
                     workInfo.isFinished -> 0
-                    else -> secondsPerRep
+                    else -> SecondsPerRep
                 }
             )
         }
+        var muteIconRequested by remember { mutableIntStateOf(0) }
+        var showMuteIcon by remember { mutableStateOf(false) }
+
+        LaunchedEffect(muteIconRequested) {
+            if (muteIconRequested == 0) return@LaunchedEffect
+            // Показываем иконку, если пользователь кликнул по экрану
+            showMuteIcon = true
+            // Скрываем иконку через 5 секунд
+            delay(5000)
+            showMuteIcon = false
+        }
+
         val phaseColor = when {
             workInfo.isPreparation -> Color(0xFFFFF176) // жёлтый
             workInfo.isRest -> Color(0xFF90CAF9)
             workInfo.isFinished -> Color(0xFF81C784) // зелёный
             // Выполнение упражнения
             else -> Color(0xFFA5D6A7)
+        }
+
+        val skipForwardBackward = {
+            forward: Boolean ->
+            workInfo = if (forward) {
+                workInfo.next()
+            } else {
+                workInfo.prev()
+            }
+            when {
+                workInfo.isWorking -> timeLeft = SecondsPerRep
+                workInfo.isRest -> timeLeft = RestSeconds
+                workInfo.isPreparation -> timeLeft = PreparationSeconds
+            }
         }
 
         LaunchedEffect(workInfo, isPaused) {
@@ -135,11 +172,65 @@ class ExerciseActivity : ComponentActivity() {
             }
         }
 
+
+        val swipeThreshold = 100.dp
+        var totalDragAmount = 0.dp
+
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(phaseColor)
+                .systemBarsPadding()
+                .clickable {
+                    muteIconRequested++
+                }
+                .pointerInput(Unit) {
+                    detectHorizontalDragGestures(
+                        onDragStart = {
+                            totalDragAmount = 0.dp // Сбрасываем накопленное значение при начале перетаскивания
+                        },
+                        onDragEnd = {
+                            // Проверяем, достаточно ли было перетянуто для переключения
+                            if (totalDragAmount > swipeThreshold) {
+                                skipForwardBackward(true) // Перемотка вперёд
+                            } else if (totalDragAmount < -swipeThreshold) {
+                                skipForwardBackward(false) // Перемотка назад
+                            }
+                            totalDragAmount = 0.dp // Сбрасываем после завершения перетаскивания
+                        },
+                    ) {
+                        change, dragAmount ->
+                        change.consume()
+                        totalDragAmount += dragAmount.dp
+                    }
+                }
         ) {
+            if (!workInfo.isFinished && showMuteIcon) {
+                Row(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(all = 16.dp)
+                        .fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    IconButton(
+                        onClick = {
+                            AppSettings = AppSettings.copy(
+                                mute = !AppSettings.mute
+                            )
+                            SettingsStorage.save(this@ExerciseActivity, AppSettings)
+                        },
+                    ) {
+                        Icon(
+                            imageVector = if (AppSettings.mute) Icons.AutoMirrored.Outlined.VolumeUp else Icons.AutoMirrored.Outlined.VolumeOff,
+                            contentDescription = if (AppSettings.mute) "Включить звук" else "Выключить звук",
+                            tint = Color.DarkGray,
+                            modifier = Modifier.size(48.dp)
+                        )
+                    }
+                }
+            }
             Column(
                 modifier = Modifier.align(Alignment.Center),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -159,8 +250,8 @@ class ExerciseActivity : ComponentActivity() {
                     Text(text = timeLeft.toString(), style = hugeText)
                     Spacer(modifier = Modifier.height(32.dp))
                 } else {
-                    Text(text = "Подход: ${workInfo.currentSet} / $sets", style = bigText)
-                    Text(text = "Повторение: ${workInfo.currentRep} / $reps", style = bigText)
+                    Text(text = "Подход: ${workInfo.currentSet} / $SetNumber", style = bigText)
+                    Text(text = "Повторение: ${workInfo.currentRep} / $RepNumber", style = bigText)
                     Text(text = if (workInfo.isRest) "Отдых" else "Выполнение", style = mediumText)
                     Text(text = timeLeft.toString(), style = hugeText)
                     Spacer(modifier = Modifier.height(32.dp))
@@ -171,6 +262,7 @@ class ExerciseActivity : ComponentActivity() {
                 // Получаем ширину экрана
                 val screenWidth =
                     androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp.dp
+                // Определяем размеры и отступы для кнопок
                 val iconWidth = 64.dp
                 val pauseWidth = 96.dp
                 val totalIconsWidth = iconWidth * 2 + pauseWidth
@@ -178,7 +270,7 @@ class ExerciseActivity : ComponentActivity() {
                 Row(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .padding(bottom = 32.dp)
+                        .padding(bottom = 16.dp)
                         .fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -186,17 +278,13 @@ class ExerciseActivity : ComponentActivity() {
                     // Назад
                     IconButton(
                         onClick = {
-                            workInfo = workInfo.prev()
-                            when {
-                                workInfo.isWorking -> timeLeft = secondsPerRep
-                                workInfo.isRest -> timeLeft = restSeconds
-                                workInfo.isPreparation -> timeLeft = prepTime
-                            }
+                            skipForwardBackward(false)
                         },
                         modifier = Modifier.size(iconWidth)
                     ) {
                         Icon(
-                            painter = painterResource(R.drawable.ic_media_previous),
+                            // painter = painterResource(R.drawable.ic_media_previous),
+                            imageVector = Icons.Outlined.SkipPrevious,
                             contentDescription = "Назад",
                             tint = Color.DarkGray,
                             modifier = Modifier.size(iconWidth)
@@ -208,21 +296,21 @@ class ExerciseActivity : ComponentActivity() {
                         onClick = {
                             isPaused = !isPaused
                             if (!isPaused && workInfo.isWorking) {
-                                timeLeft = secondsPerRep
+                                timeLeft = SecondsPerRep
                             }
                         },
                         modifier = Modifier.size(pauseWidth)
                     ) {
                         if (isPaused) {
                             Icon(
-                                painter = painterResource(R.drawable.ic_media_play),
+                                imageVector = Icons.Outlined.PlayArrow,
                                 contentDescription = "Воспроизведение",
                                 tint = Color.DarkGray,
                                 modifier = Modifier.size(pauseWidth)
                             )
                         } else {
                             Icon(
-                                painter = painterResource(R.drawable.ic_media_pause),
+                                imageVector = Icons.Outlined.Pause,
                                 contentDescription = "Пауза",
                                 tint = Color.DarkGray,
                                 modifier = Modifier.size(pauseWidth)
@@ -234,16 +322,11 @@ class ExerciseActivity : ComponentActivity() {
                     IconButton(
                         modifier = Modifier.size(iconWidth),
                         onClick = {
-                            workInfo = workInfo.next()
-                            when {
-                                workInfo.isWorking -> timeLeft = secondsPerRep
-                                workInfo.isRest -> timeLeft = restSeconds
-                                workInfo.isPreparation -> timeLeft = prepTime
-                            }
+                            skipForwardBackward(true)
                         },
                     ) {
                         Icon(
-                            painter = painterResource(R.drawable.ic_media_next),
+                            imageVector = Icons.Outlined.SkipNext,
                             contentDescription = "Вперёд",
                             tint = Color.DarkGray,
                             modifier = Modifier.size(iconWidth)
@@ -256,12 +339,17 @@ class ExerciseActivity : ComponentActivity() {
     }
 
     suspend fun doRest(
-        restSeconds: Int,
+        remainingSeconds: Int,
         onTimeLeftChange: (Int) -> Unit,
+        isPreparation: Boolean = false,
     ) {
-        var timeLeft = restSeconds
+        if (!isPreparation && remainingSeconds == RestSeconds) {
+            // Если это не подготовка, то говорим о начале отдыха
+            speak("Отдых $RestSeconds секунд")
+        }
+        var timeLeft = remainingSeconds
         while (timeLeft > 0) {
-            if (timeLeft <= settings.beepsBeforeStart) {
+            if (timeLeft <= AppSettings.beepsBeforeStart) {
                 toneGen.startTone(TONE_PROP_BEEP, 100)
             }
             onTimeLeftChange(timeLeft)
@@ -280,8 +368,8 @@ class ExerciseActivity : ComponentActivity() {
             val nextWork = workInfo.next()
             onTimeLeftChange(
                 when {
-                    nextWork.isRest -> restSeconds
-                    else -> secondsPerRep
+                    nextWork.isRest -> RestSeconds
+                    else -> SecondsPerRep
                 }
             )
             nextWork
@@ -293,7 +381,7 @@ class ExerciseActivity : ComponentActivity() {
         if (workInfo.isPreparation || workInfo.isRest) {
             // Подготовка или отдых: отсчитываем время до завершения
             doRest(
-                restSeconds = timeLeft,
+                remainingSeconds = timeLeft,
                 onTimeLeftChange = onTimeLeftChange,
             )
             // Возвращаем управление в главную composable процедуру
@@ -303,9 +391,9 @@ class ExerciseActivity : ComponentActivity() {
         var timeLeft = timeLeft
         while (timeLeft > 0) {
             when (timeLeft) {
-                secondsPerRep -> {
-                    if (!settings.mute) {
-                        val repToSpeak = if (settings.reverseRepCount) {
+                SecondsPerRep -> {
+                    if (!AppSettings.mute) {
+                        val repToSpeak = if (AppSettings.reverseRepCount) {
                             workInfo.maxRep - workInfo.currentRep + 1
                         } else {
                             workInfo.currentRep
@@ -318,7 +406,7 @@ class ExerciseActivity : ComponentActivity() {
                     }
                 }
 
-                secondsPerRep / 2 -> {
+                SecondsPerRep / 2 -> {
                     // Двойной бип в середине повторения
                     toneGen.startTone(TONE_CDMA_ALERT_CALL_GUARD, 100)
                 }
@@ -339,15 +427,13 @@ class ExerciseActivity : ComponentActivity() {
             toneGen.startTone(TONE_CDMA_ALERT_CALL_GUARD, 500)
             if (workInfo.isVeryLastRep()) {
                 speak("Упражнение завершено")
-            } else {
-                speak("Отдых $restSeconds секунд")
             }
         }
         return updateWorkAndTimeLeft()
     }
 
     private fun speak(text: String) {
-        if (settings.mute) return
+        if (AppSettings.mute) return
         textToSpeech.speak(
             text,
             QUEUE_FLUSH,
