@@ -50,7 +50,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -64,28 +63,28 @@ class ExerciseActivity : ComponentActivity() {
     private lateinit var textToSpeech: TextToSpeech
     private lateinit var toneGen: ToneGenerator
 
-    private var SecondsPerRep = 6
-    private var RepNumber = 8
-    private var RestSeconds = 50
-    private var SetNumber = 7
-    private var PreparationSeconds = 7
-    private lateinit var AppSettings: Settings
+    private var paramSecondsPerRep = 6
+    private var paramRepNumber = 8
+    private var paramRestSeconds = 50
+    private var paramSetNumber = 7
+    private var paramPreparationSeconds = 7
+    private lateinit var appSettings: Settings
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        SecondsPerRep = intent.getIntExtra("secondsPerRep", 6)
-        RepNumber = intent.getIntExtra("reps", 8)
-        RestSeconds = intent.getIntExtra("restSeconds", 50)
-        SetNumber = intent.getIntExtra("sets", 4)
-        AppSettings = SettingsStorage.load(this)
-        PreparationSeconds = AppSettings.prepTime
+        paramSecondsPerRep = intent.getIntExtra("secondsPerRep", 6)
+        paramRepNumber = intent.getIntExtra("reps", 8)
+        paramRestSeconds = intent.getIntExtra("restSeconds", 50)
+        paramSetNumber = intent.getIntExtra("sets", 4)
+        appSettings = SettingsStorage.load(this)
+        paramPreparationSeconds = appSettings.prepTime
         textToSpeech = TextToSpeech(this) { status ->
             if (status == TextToSpeech.SUCCESS) {
                 textToSpeech.language = Locale.getDefault()
             }
         }
-        toneGen = ToneGenerator(AudioManager.STREAM_MUSIC, AppSettings.volume)
+        toneGen = ToneGenerator(AudioManager.STREAM_MUSIC, appSettings.volume)
         setContent {
             BeeperTheme {
                 ExerciseScreen()
@@ -106,9 +105,9 @@ class ExerciseActivity : ComponentActivity() {
         var workInfo by remember {
             mutableStateOf(
                 Work(
-                    isPreparation = PreparationSeconds > 0,
-                    maxRep = RepNumber,
-                    maxSet = SetNumber,
+                    isPreparation = paramPreparationSeconds > 0,
+                    maxRep = paramRepNumber,
+                    maxSet = paramSetNumber,
                     currentRep = 1,
                     currentSet = 1,
                     isRest = false,
@@ -120,10 +119,10 @@ class ExerciseActivity : ComponentActivity() {
         var timeLeft by remember {
             mutableIntStateOf(
                 when {
-                    workInfo.isPreparation -> PreparationSeconds
-                    workInfo.isRest -> RestSeconds
+                    workInfo.isPreparation -> paramPreparationSeconds
+                    workInfo.isRest -> paramRestSeconds
                     workInfo.isFinished -> 0
-                    else -> SecondsPerRep
+                    else -> paramSecondsPerRep
                 }
             )
         }
@@ -155,9 +154,9 @@ class ExerciseActivity : ComponentActivity() {
                 workInfo.prev()
             }
             when {
-                workInfo.isWorking -> timeLeft = SecondsPerRep
-                workInfo.isRest -> timeLeft = RestSeconds
-                workInfo.isPreparation -> timeLeft = PreparationSeconds
+                workInfo.isWorking -> timeLeft = paramSecondsPerRep
+                workInfo.isRest -> timeLeft = paramRestSeconds
+                workInfo.isPreparation -> timeLeft = paramPreparationSeconds
             }
         }
 
@@ -191,9 +190,11 @@ class ExerciseActivity : ComponentActivity() {
                         },
                         onDragEnd = {
                             // Проверяем, достаточно ли было перетянуто для переключения
-                            if (totalDragAmount > swipeThreshold) {
+                            val coef = if (appSettings.swipeRightToLeft) -1 else 1
+                            val dragAmount = totalDragAmount * coef
+                            if (dragAmount > swipeThreshold) {
                                 skipForwardBackward(true) // Перемотка вперёд
-                            } else if (totalDragAmount < -swipeThreshold) {
+                            } else if (dragAmount < -swipeThreshold) {
                                 skipForwardBackward(false) // Перемотка назад
                             }
                             totalDragAmount = 0.dp // Сбрасываем после завершения перетаскивания
@@ -216,15 +217,15 @@ class ExerciseActivity : ComponentActivity() {
                 ) {
                     IconButton(
                         onClick = {
-                            AppSettings = AppSettings.copy(
-                                mute = !AppSettings.mute
+                            appSettings = appSettings.copy(
+                                mute = !appSettings.mute
                             )
-                            SettingsStorage.save(this@ExerciseActivity, AppSettings)
+                            SettingsStorage.save(this@ExerciseActivity, appSettings)
                         },
                     ) {
                         Icon(
-                            imageVector = if (AppSettings.mute) Icons.AutoMirrored.Outlined.VolumeUp else Icons.AutoMirrored.Outlined.VolumeOff,
-                            contentDescription = if (AppSettings.mute) "Включить звук" else "Выключить звук",
+                            imageVector = if (appSettings.mute) Icons.AutoMirrored.Outlined.VolumeUp else Icons.AutoMirrored.Outlined.VolumeOff,
+                            contentDescription = if (appSettings.mute) "Включить звук" else "Выключить звук",
                             tint = Color.DarkGray,
                             modifier = Modifier.size(48.dp)
                         )
@@ -250,8 +251,8 @@ class ExerciseActivity : ComponentActivity() {
                     Text(text = timeLeft.toString(), style = hugeText)
                     Spacer(modifier = Modifier.height(32.dp))
                 } else {
-                    Text(text = "Подход: ${workInfo.currentSet} / $SetNumber", style = bigText)
-                    Text(text = "Повторение: ${workInfo.currentRep} / $RepNumber", style = bigText)
+                    Text(text = "Подход: ${workInfo.currentSet} / $paramSetNumber", style = bigText)
+                    Text(text = "Повторение: ${workInfo.currentRep} / $paramRepNumber", style = bigText)
                     Text(text = if (workInfo.isRest) "Отдых" else "Выполнение", style = mediumText)
                     Text(text = timeLeft.toString(), style = hugeText)
                     Spacer(modifier = Modifier.height(32.dp))
@@ -296,7 +297,7 @@ class ExerciseActivity : ComponentActivity() {
                         onClick = {
                             isPaused = !isPaused
                             if (!isPaused && workInfo.isWorking) {
-                                timeLeft = SecondsPerRep
+                                timeLeft = paramSecondsPerRep
                             }
                         },
                         modifier = Modifier.size(pauseWidth)
@@ -343,13 +344,13 @@ class ExerciseActivity : ComponentActivity() {
         onTimeLeftChange: (Int) -> Unit,
         isPreparation: Boolean = false,
     ) {
-        if (!isPreparation && remainingSeconds == RestSeconds) {
+        if (!isPreparation && remainingSeconds == paramRestSeconds) {
             // Если это не подготовка, то говорим о начале отдыха
-            speak("Отдых $RestSeconds секунд")
+            speak("Отдых $paramRestSeconds секунд")
         }
         var timeLeft = remainingSeconds
         while (timeLeft > 0) {
-            if (timeLeft <= AppSettings.beepsBeforeStart) {
+            if (timeLeft <= appSettings.beepsBeforeStart) {
                 toneGen.startTone(TONE_PROP_BEEP, 100)
             }
             onTimeLeftChange(timeLeft)
@@ -368,8 +369,8 @@ class ExerciseActivity : ComponentActivity() {
             val nextWork = workInfo.next()
             onTimeLeftChange(
                 when {
-                    nextWork.isRest -> RestSeconds
-                    else -> SecondsPerRep
+                    nextWork.isRest -> paramRestSeconds
+                    else -> paramSecondsPerRep
                 }
             )
             nextWork
@@ -391,9 +392,9 @@ class ExerciseActivity : ComponentActivity() {
         var timeLeft = timeLeft
         while (timeLeft > 0) {
             when (timeLeft) {
-                SecondsPerRep -> {
-                    if (!AppSettings.mute) {
-                        val repToSpeak = if (AppSettings.reverseRepCount) {
+                paramSecondsPerRep -> {
+                    if (!appSettings.mute) {
+                        val repToSpeak = if (appSettings.reverseRepCount) {
                             workInfo.maxRep - workInfo.currentRep + 1
                         } else {
                             workInfo.currentRep
@@ -406,7 +407,7 @@ class ExerciseActivity : ComponentActivity() {
                     }
                 }
 
-                SecondsPerRep / 2 -> {
+                paramSecondsPerRep / 2 -> {
                     // Двойной бип в середине повторения
                     toneGen.startTone(TONE_CDMA_ALERT_CALL_GUARD, 100)
                 }
@@ -433,7 +434,7 @@ class ExerciseActivity : ComponentActivity() {
     }
 
     private fun speak(text: String) {
-        if (AppSettings.mute) return
+        if (appSettings.mute) return
         textToSpeech.speak(
             text,
             QUEUE_FLUSH,
