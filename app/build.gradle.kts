@@ -12,8 +12,8 @@ android {
         applicationId = "me.pakuula.beeper"
         minSdk = 33
         targetSdk = 36
-        versionCode = 3
-        versionName = "0.2.0"
+        versionCode = 4
+        versionName = "0.3.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -51,7 +51,7 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.gson)
     implementation(libs.androidx.navigation.compose)
-    //noinspection GradleDependency
+    //noinspection UseTomlInstead,GradleDependency
     implementation("androidx.compose.material:material-icons-extended-android:1.7.8")
 
     testImplementation(libs.junit)
