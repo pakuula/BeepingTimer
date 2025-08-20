@@ -3,6 +3,7 @@ package me.pakuula.beeper
 //noinspection SuspiciousImport
 
 import android.annotation.SuppressLint
+import android.content.res.Configuration.ORIENTATION_LANDSCAPE
 import android.media.AudioManager
 import android.media.ToneGenerator
 import android.media.ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD
@@ -66,6 +67,8 @@ class ExerciseActivity : ComponentActivity() {
     val isPreparation: Boolean get() = viewModel.workInfo.value.isPreparation
     val timeLeft: Int get() = viewModel.timeLeft.value
     val workInfo: Work get() = viewModel.workInfo.value
+    val showMuteIcon: Boolean get() = viewModel.showMuteIcon.value
+    val isPaused: Boolean get() = viewModel.isPaused.value
 
     private lateinit var textToSpeech: TextToSpeech
     private lateinit var toneGen: ToneGenerator
@@ -142,7 +145,6 @@ class ExerciseActivity : ComponentActivity() {
 
         // Получаем muteIconRequested и showMuteIcon из viewModel
         val muteIconRequested by viewModel.muteIconRequested.collectAsState()
-        val showMuteIcon by viewModel.showMuteIcon.collectAsState()
 
         LaunchedEffect(muteIconRequested) {
             if (muteIconRequested == 0) return@LaunchedEffect
@@ -177,40 +179,205 @@ class ExerciseActivity : ComponentActivity() {
         var totalDragAmount = 0.dp
 
         var boxWidthPx by remember { mutableIntStateOf(0) }
+        var boxHeightPx by remember { mutableIntStateOf(0) }
+
+        val boxModifierFactory = {
+            Modifier
+                .fillMaxSize()
+                .background(phaseColor)
+                .systemBarsPadding()
+                .clickable {
+                    viewModel.increaseMuteIconRequested()
+                }
+                .pointerInput(Unit) {
+                    detectHorizontalDragGestures(
+                        onDragStart = {
+                            totalDragAmount =
+                                0.dp // Сбрасываем накопленное значение при начале перетаскивания
+                        },
+                        onDragEnd = {
+                            // Проверяем, достаточно ли было перетянуто для переключения
+                            val coef = if (appSettings.swipeRightToLeft) -1 else 1
+                            val dragAmount = totalDragAmount * coef
+                            if (dragAmount > swipeThreshold) {
+                                skipForwardBackward(true) // Перемотка вперёд
+                            } else if (dragAmount < -swipeThreshold) {
+                                skipForwardBackward(false) // Перемотка назад
+                            }
+                            totalDragAmount = 0.dp // Сбрасываем после завершения перетаскивания
+                        },
+                    ) { change, dragAmount ->
+                        change.consume()
+                        totalDragAmount += dragAmount.dp
+                    }
+                }
+                .onGloballyPositioned { coordinates ->
+                    boxWidthPx = coordinates.size.width
+                    boxHeightPx = coordinates.size.height
+                }
+        }
+        // Определяем, какую компоновку использовать: горизонтальную или вертикальную
+        val isLandscape =
+            resources.configuration.orientation == ORIENTATION_LANDSCAPE
+        if (isLandscape) {
+            HorizontalLayout(boxModifierFactory) { boxHeightPx }
+        } else {
+            VerticalLayout(boxModifierFactory) { boxWidthPx }
+        }
+    }
+
+    @Composable
+    private fun HorizontalLayout(
+        boxModifierFactory: () -> Modifier,
+        getBoxHeightPx: () -> Int,
+    ) {
         val density = androidx.compose.ui.platform.LocalDensity.current
-        val boxModifier = Modifier
-            .fillMaxSize()
-            .background(phaseColor)
-            .systemBarsPadding()
-            .clickable {
-                viewModel.increaseMuteIconRequested()
-            }
-            .pointerInput(Unit) {
-                detectHorizontalDragGestures(
-                    onDragStart = {
-                        totalDragAmount =
-                            0.dp // Сбрасываем накопленное значение при начале перетаскивания
-                    },
-                    onDragEnd = {
-                        // Проверяем, достаточно ли было перетянуто для переключения
-                        val coef = if (appSettings.swipeRightToLeft) -1 else 1
-                        val dragAmount = totalDragAmount * coef
-                        if (dragAmount > swipeThreshold) {
-                            skipForwardBackward(true) // Перемотка вперёд
-                        } else if (dragAmount < -swipeThreshold) {
-                            skipForwardBackward(false) // Перемотка назад
-                        }
-                        totalDragAmount = 0.dp // Сбрасываем после завершения перетаскивания
-                    },
-                ) { change, dragAmount ->
-                    change.consume()
-                    totalDragAmount += dragAmount.dp
+        val timeLeft by viewModel.timeLeft.collectAsState()
+        Box(modifier = boxModifierFactory()) {
+            if (!workInfo.isFinished && showMuteIcon) {
+                Row(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(all = 16.dp)
+                        .fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Start,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    IconButton(
+                        onClick = {
+                            appSettings = appSettings.copy(
+                                mute = !appSettings.mute
+                            )
+                            SettingsStorage.save(this@ExerciseActivity, appSettings)
+                        },
+                    ) {
+                        Icon(
+                            imageVector = if (appSettings.mute) Icons.AutoMirrored.Outlined.VolumeUp else Icons.AutoMirrored.Outlined.VolumeOff,
+                            contentDescription = if (appSettings.mute) "Включить звук" else "Выключить звук",
+                            tint = Color.DarkGray,
+                            modifier = Modifier.size(48.dp)
+                        )
+                    }
                 }
             }
-            .onGloballyPositioned { coordinates ->
-                boxWidthPx = coordinates.size.width
+            Column(
+                modifier = Modifier.align(Alignment.Center),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                val bigText = TextStyle(fontSize = 36.sp)
+                val mediumText = TextStyle(fontSize = 28.sp)
+                val hugeText = TextStyle(fontSize = 96.sp)
+                if (workInfo.isFinished) {
+                    Text(
+                        text = "Упражнение завершено",
+                        color = Color.Red,
+                        style = bigText,
+                        modifier = Modifier.wrapContentSize(Alignment.Center)
+                    )
+                } else if (workInfo.isPreparation) {
+                    Text(text = "Подготовка", style = bigText, color = Color(0xFFFBC02D))
+                    Text(text = timeLeft.toString(), style = hugeText)
+                    Spacer(modifier = Modifier.height(32.dp))
+                } else {
+                    Text(text = "Подход: ${workInfo.currentSet} / $paramSetNumber", style = bigText)
+                    Text(
+                        text = "Повторение: ${workInfo.currentRep} / $paramRepNumber",
+                        style = bigText
+                    )
+                    Text(text = if (workInfo.isRest) "Отдых" else "Выполнение", style = mediumText)
+                    Text(text = timeLeft.toString(), style = hugeText)
+                    Spacer(modifier = Modifier.height(32.dp))
+                }
             }
-        Box(modifier = boxModifier) {
+            // Нижняя панель управления: перемотка назад, пауза/воспроизведение, перемотка вперед
+            if (!workInfo.isFinished) {
+                val boxHeightDp = with(density) { getBoxHeightPx().toDp() }
+                // Определяем размеры и отступы для кнопок
+                val iconSize = 64.dp
+                val pauseSize = 96.dp
+                val totalIconsSize = iconSize * 2 + pauseSize
+                val spaceL = (boxHeightDp - totalIconsSize) / 3f
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .padding(bottom = 16.dp)
+                        .height(boxHeightDp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Spacer(modifier = Modifier.height(spaceL / 2))
+                    // Назад
+                    IconButton(
+                        onClick = {
+                            skipForwardBackward(false)
+                        },
+                        modifier = Modifier.size(iconSize)
+                    ) {
+                        Icon(
+                            // painter = painterResource(R.drawable.ic_media_previous),
+                            imageVector = Icons.Outlined.SkipPrevious,
+                            contentDescription = "Назад",
+                            tint = Color.DarkGray,
+                            modifier = Modifier.size(iconSize)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(spaceL))
+                    // Пауза/воспроизведение
+                    IconButton(
+                        onClick = {
+                            viewModel.togglePaused()
+                            if (!isPaused && workInfo.isWorking) {
+                                viewModel.setTimeLeft(paramSecondsPerRep)
+                            }
+                        },
+                        modifier = Modifier.size(pauseSize)
+                    ) {
+                        if (isPaused) {
+                            Icon(
+                                imageVector = Icons.Outlined.PlayArrow,
+                                contentDescription = "Воспроизведение",
+                                tint = Color.DarkGray,
+                                modifier = Modifier.size(pauseSize)
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Outlined.Pause,
+                                contentDescription = "Пауза",
+                                tint = Color.DarkGray,
+                                modifier = Modifier.size(pauseSize)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(spaceL))
+                    // Вперёд
+                    IconButton(
+                        modifier = Modifier.size(iconSize),
+                        onClick = {
+                            skipForwardBackward(true)
+                        },
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.SkipNext,
+                            contentDescription = "Вперёд",
+                            tint = Color.DarkGray,
+                            modifier = Modifier.size(iconSize)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(spaceL / 2))
+                }
+            }
+        }
+    }
+
+    @Composable
+    private fun VerticalLayout(
+        boxModifierFactory: () -> Modifier,
+        getBoxWidthPx: () -> Int,
+    ) {
+        val density = androidx.compose.ui.platform.LocalDensity.current
+        val timeLeft by viewModel.timeLeft.collectAsState()
+        Box(modifier = boxModifierFactory()) {
             if (!workInfo.isFinished && showMuteIcon) {
                 Row(
                     modifier = Modifier
@@ -269,9 +436,7 @@ class ExerciseActivity : ComponentActivity() {
             }
             // Нижняя панель управления: перемотка назад, пауза/воспроизведение, перемотка вперед
             if (!workInfo.isFinished) {
-                val boxWidthDp = with(density) { boxWidthPx.toDp() }
-                // Получаем ширину экрана
-                androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp.dp
+                val boxWidthDp = with(density) { getBoxWidthPx().toDp() }
                 // Определяем размеры и отступы для кнопок
                 val iconWidth = 64.dp
                 val pauseWidth = 96.dp
