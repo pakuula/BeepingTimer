@@ -8,21 +8,30 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -30,6 +39,7 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
@@ -190,17 +200,40 @@ class MainActivity : ComponentActivity() {
                                     }
                                     DropdownMenu(
                                         expanded = menuExpanded,
-                                        onDismissRequest = { menuExpanded = false }
+                                        onDismissRequest = { menuExpanded = false },
+                                        modifier = Modifier.width(48.dp) // ширина меню равна размеру иконки
                                     ) {
                                         DropdownMenuItem(
-                                            text = { Text("Добавить таймер") },
+                                            text = {
+                                                Box(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    contentAlignment = Alignment.CenterEnd
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Add,
+                                                        contentDescription = "Добавить таймер",
+                                                        modifier = Modifier.size(32.dp)
+                                                    )
+                                                }
+                                            },
                                             onClick = {
                                                 menuExpanded = false
                                                 navController.navigate("add")
                                             }
                                         )
                                         DropdownMenuItem(
-                                            text = { Text("Настройки") },
+                                            text = {
+                                                Box(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    contentAlignment = Alignment.CenterEnd
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Settings,
+                                                        contentDescription = "Настройки",
+                                                        modifier = Modifier.size(32.dp)
+                                                    )
+                                                }
+                                            },
                                             onClick = {
                                                 menuExpanded = false
                                                 navController.navigate("settings")
@@ -307,6 +340,8 @@ fun SettingsScreen(
     var selectedVoice by remember { mutableStateOf(settings.voice) }
     var reverseRepCount by remember { mutableStateOf(settings.reverseRepCount) }
     var mute by remember { mutableStateOf(settings.mute) }
+    var timerSettingsExpanded by remember { mutableStateOf(false) }
+    var ttsSettingsExpanded by remember { mutableStateOf(false) }
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -325,107 +360,148 @@ fun SettingsScreen(
                 Text("${volume.toInt()}%", fontSize = 14.sp)
             }
             item {
-                Text("Язык приложения", fontSize = 16.sp)
-                ExposedDropdownMenuBox(
-                    expanded = languageExpanded,
-                    onExpandedChange = { languageExpanded = !languageExpanded }
+                androidx.compose.material3.Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp)
+                        .animateContentSize(),
+                    elevation = androidx.compose.material3.CardDefaults.cardElevation(4.dp)
                 ) {
-                    OutlinedTextField(
-                        value = selectedLanguage,
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Язык") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = languageExpanded) },
-                        modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable)
-                    )
-                    DropdownMenu(
-                        expanded = languageExpanded,
-                        onDismissRequest = { languageExpanded = false }
-                    ) {
-                        languages.forEach { lang ->
-                            DropdownMenuItem(
-                                text = { Text(lang) },
-                                onClick = {
-                                    selectedLanguage = lang
-                                    languageExpanded = false
-                                }
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Настройки таймера", fontSize = 20.sp, modifier = Modifier.weight(1f))
+                            IconButton(onClick = { timerSettingsExpanded = !timerSettingsExpanded }) {
+                                Icon(
+                                    imageVector = if (timerSettingsExpanded) Icons.Default.ArrowDropDown else Icons.Default.Add,
+                                    contentDescription = if (timerSettingsExpanded) "Свернуть" else "Развернуть"
+                                )
+                            }
+                        }
+                        if (timerSettingsExpanded) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text("Время на подготовку к тренировке", fontSize = 16.sp)
+                            Slider(
+                                value = prepTime.toFloat(),
+                                onValueChange = { prepTime = it.toInt() },
+                                valueRange = 0f..60f
                             )
+                            Text("$prepTime сек", fontSize = 14.sp)
+                            Text("Количество бипов перед началом тренировки", fontSize = 16.sp)
+                            Slider(
+                                value = beepsBeforeStart.toFloat(),
+                                onValueChange = { beepsBeforeStart = it.toInt() },
+                                valueRange = 0f..10f
+                            )
+                            Text("$beepsBeforeStart", fontSize = 14.sp)
+                            Text("Количество бипов перед началом подхода", fontSize = 16.sp)
+                            Slider(
+                                value = beepsBeforeSet.toFloat(),
+                                onValueChange = { beepsBeforeSet = it.toInt() },
+                                valueRange = 0f..10f
+                            )
+                            Text("$beepsBeforeSet", fontSize = 14.sp)
                         }
                     }
                 }
             }
             item {
-                Text("Голос синтезатора речи", fontSize = 16.sp)
-                ExposedDropdownMenuBox(
-                    expanded = voiceExpanded,
-                    onExpandedChange = { voiceExpanded = !voiceExpanded }
+                androidx.compose.material3.Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp)
+                        .animateContentSize(),
+                    elevation = androidx.compose.material3.CardDefaults.cardElevation(4.dp)
                 ) {
-                    OutlinedTextField(
-                        value = selectedVoice,
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Голос") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = voiceExpanded) },
-                        modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable)
-                    )
-                    DropdownMenu(
-                        expanded = voiceExpanded,
-                        onDismissRequest = { voiceExpanded = false }
-                    ) {
-                        voices.forEach { v ->
-                            DropdownMenuItem(
-                                text = { Text(v) },
-                                onClick = {
-                                    selectedVoice = v
-                                    voiceExpanded = false
-                                }
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Настройки синтезатора речи", fontSize = 20.sp, modifier = Modifier.weight(1f))
+                            IconButton(onClick = { ttsSettingsExpanded = !ttsSettingsExpanded }) {
+                                Icon(
+                                    imageVector = if (ttsSettingsExpanded) Icons.Default.ArrowDropDown else Icons.Default.Add,
+                                    contentDescription = if (ttsSettingsExpanded) "Свернуть" else "Развернуть"
+                                )
+                            }
+                        }
+                        if (ttsSettingsExpanded) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text("Включить голосовые сообщения", fontSize = 16.sp)
+                            androidx.compose.material3.Switch(
+                                checked = !mute,
+                                onCheckedChange = { mute = !it }
                             )
+                            Text(if (mute) "Отключено" else "Включено", fontSize = 14.sp)
+                            Text("Язык приложения", fontSize = 16.sp)
+                            ExposedDropdownMenuBox(
+                                expanded = languageExpanded && !mute,
+                                onExpandedChange = { languageExpanded = if (mute) false else !languageExpanded }
+                            ) {
+                                OutlinedTextField(
+                                    value = selectedLanguage,
+                                    onValueChange = {},
+                                    readOnly = true,
+                                    label = { Text("Язык") },
+                                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = languageExpanded) },
+                                    modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                                )
+                                DropdownMenu(
+                                    expanded = languageExpanded,
+                                    onDismissRequest = { languageExpanded = false }
+                                ) {
+                                    languages.forEach { lang ->
+                                        DropdownMenuItem(
+                                            text = { Text(lang) },
+                                            onClick = {
+                                                selectedLanguage = lang
+                                                languageExpanded = false
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                            Text("Голос синтезатора речи", fontSize = 16.sp)
+                            ExposedDropdownMenuBox(
+                                expanded = voiceExpanded && !mute,
+                                onExpandedChange = { voiceExpanded = if (mute) false else !voiceExpanded }
+                            ) {
+                                OutlinedTextField(
+                                    value = selectedVoice,
+                                    onValueChange = {},
+                                    readOnly = true,
+                                    label = { Text("Голос") },
+                                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = voiceExpanded) },
+                                    modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                                )
+                                DropdownMenu(
+                                    expanded = voiceExpanded,
+                                    onDismissRequest = { voiceExpanded = false }
+                                ) {
+                                    voices.forEach { v ->
+                                        DropdownMenuItem(
+                                            text = { Text(v) },
+                                            onClick = {
+                                                selectedVoice = v
+                                                voiceExpanded = false
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                            Text("Отсчёт повторов в обратном порядке", fontSize = 16.sp)
+                            androidx.compose.material3.Switch(
+                                checked = reverseRepCount,
+                                enabled = !mute,
+                                onCheckedChange = { reverseRepCount = it }
+                            )
+                            Text(if (reverseRepCount) "Включено" else "Выключено", fontSize = 14.sp)
                         }
                     }
                 }
-            }
-            item {
-                Text("Время на подготовку к тренировке", fontSize = 16.sp)
-                Slider(
-                    value = prepTime.toFloat(),
-                    onValueChange = { prepTime = it.toInt() },
-                    valueRange = 0f..60f
-                )
-                Text("$prepTime сек", fontSize = 14.sp)
-            }
-            item {
-                Text("Количество бипов перед началом тренировки", fontSize = 16.sp)
-                Slider(
-                    value = beepsBeforeStart.toFloat(),
-                    onValueChange = { beepsBeforeStart = it.toInt() },
-                    valueRange = 0f..10f
-                )
-                Text("$beepsBeforeStart", fontSize = 14.sp)
-            }
-            item {
-                Text("Количество бипов перед началом подхода", fontSize = 16.sp)
-                Slider(
-                    value = beepsBeforeSet.toFloat(),
-                    onValueChange = { beepsBeforeSet = it.toInt() },
-                    valueRange = 0f..10f
-                )
-                Text("$beepsBeforeSet", fontSize = 14.sp)
-            }
-            item {
-                Text("Отсчёт повторов в обратном порядке", fontSize = 16.sp)
-                androidx.compose.material3.Switch(
-                    checked = reverseRepCount,
-                    onCheckedChange = { reverseRepCount = it }
-                )
-                Text(if (reverseRepCount) "Включено" else "Выключено", fontSize = 14.sp)
-            }
-            item {
-                Text("Отключить голосовые сообщения", fontSize = 16.sp)
-                androidx.compose.material3.Switch(
-                    checked = mute,
-                    onCheckedChange = { mute = it }
-                )
-                Text(if (mute) "Отключено" else "Включено", fontSize = 14.sp)
             }
             item {
                 Spacer(modifier = Modifier.height(24.dp))
