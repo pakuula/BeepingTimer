@@ -72,6 +72,9 @@ class ExerciseActivity : ComponentActivity() {
 
     private lateinit var textToSpeech: TextToSpeech
     private lateinit var toneGen: ToneGenerator
+    val bigText = TextStyle(fontSize = 36.sp)
+    val mediumText = TextStyle(fontSize = 28.sp)
+    val hugeText = TextStyle(fontSize = 96.sp)
 
     private var paramSecondsPerRep = 6
     private var paramRepNumber = 8
@@ -226,6 +229,9 @@ class ExerciseActivity : ComponentActivity() {
         }
     }
 
+    private val skipIconSize = 64.dp
+    private val pauseSize = 96.dp
+
     @Composable
     private fun HorizontalLayout(
         boxModifierFactory: () -> Modifier,
@@ -265,38 +271,13 @@ class ExerciseActivity : ComponentActivity() {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                val bigText = TextStyle(fontSize = 36.sp)
-                val mediumText = TextStyle(fontSize = 28.sp)
-                val hugeText = TextStyle(fontSize = 96.sp)
-                if (workInfo.isFinished) {
-                    Text(
-                        text = "Упражнение завершено",
-                        color = Color.Red,
-                        style = bigText,
-                        modifier = Modifier.wrapContentSize(Alignment.Center)
-                    )
-                } else if (workInfo.isPreparation) {
-                    Text(text = "Подготовка", style = bigText, color = Color(0xFFFBC02D))
-                    Text(text = timeLeft.toString(), style = hugeText)
-                    Spacer(modifier = Modifier.height(32.dp))
-                } else {
-                    Text(text = "Подход: ${workInfo.currentSet} / $paramSetNumber", style = bigText)
-                    Text(
-                        text = "Повторение: ${workInfo.currentRep} / $paramRepNumber",
-                        style = bigText
-                    )
-                    Text(text = if (workInfo.isRest) "Отдых" else "Выполнение", style = mediumText)
-                    Text(text = timeLeft.toString(), style = hugeText)
-                    Spacer(modifier = Modifier.height(32.dp))
-                }
+                TimerView()
             }
             // Нижняя панель управления: перемотка назад, пауза/воспроизведение, перемотка вперед
             if (!workInfo.isFinished) {
                 val boxHeightDp = with(density) { getBoxHeightPx().toDp() }
                 // Определяем размеры и отступы для кнопок
-                val iconSize = 64.dp
-                val pauseSize = 96.dp
-                val totalIconsSize = iconSize * 2 + pauseSize
+                val totalIconsSize = skipIconSize * 2 + pauseSize
                 val spaceL = (boxHeightDp - totalIconsSize) / 3f
                 Column(
                     modifier = Modifier
@@ -307,63 +288,11 @@ class ExerciseActivity : ComponentActivity() {
                 ) {
                     Spacer(modifier = Modifier.height(spaceL / 2))
                     // Назад
-                    IconButton(
-                        onClick = {
-                            skipForwardBackward(false)
-                        },
-                        modifier = Modifier.size(iconSize)
-                    ) {
-                        Icon(
-                            // painter = painterResource(R.drawable.ic_media_previous),
-                            imageVector = Icons.Outlined.SkipPrevious,
-                            contentDescription = "Назад",
-                            tint = Color.DarkGray,
-                            modifier = Modifier.size(iconSize)
-                        )
-                    }
+                    ButtonBack()
                     Spacer(modifier = Modifier.height(spaceL))
-                    // Пауза/воспроизведение
-                    IconButton(
-                        onClick = {
-                            viewModel.togglePaused()
-                            if (!isPaused && workInfo.isWorking) {
-                                viewModel.setTimeLeft(paramSecondsPerRep)
-                            }
-                        },
-                        modifier = Modifier.size(pauseSize)
-                    ) {
-                        if (isPaused) {
-                            Icon(
-                                imageVector = Icons.Outlined.PlayArrow,
-                                contentDescription = "Воспроизведение",
-                                tint = Color.DarkGray,
-                                modifier = Modifier.size(pauseSize)
-                            )
-                        } else {
-                            Icon(
-                                imageVector = Icons.Outlined.Pause,
-                                contentDescription = "Пауза",
-                                tint = Color.DarkGray,
-                                modifier = Modifier.size(pauseSize)
-                            )
-                        }
-                    }
-
+                    ButtonPlayPause()
                     Spacer(modifier = Modifier.height(spaceL))
-                    // Вперёд
-                    IconButton(
-                        modifier = Modifier.size(iconSize),
-                        onClick = {
-                            skipForwardBackward(true)
-                        },
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.SkipNext,
-                            contentDescription = "Вперёд",
-                            tint = Color.DarkGray,
-                            modifier = Modifier.size(iconSize)
-                        )
-                    }
+                    ButtonForward()
                     Spacer(modifier = Modifier.height(spaceL / 2))
                 }
             }
@@ -375,8 +304,6 @@ class ExerciseActivity : ComponentActivity() {
         boxModifierFactory: () -> Modifier,
         getBoxWidthPx: () -> Int,
     ) {
-        val density = androidx.compose.ui.platform.LocalDensity.current
-        val timeLeft by viewModel.timeLeft.collectAsState()
         Box(modifier = boxModifierFactory()) {
             if (!workInfo.isFinished && showMuteIcon) {
                 Row(
@@ -409,38 +336,14 @@ class ExerciseActivity : ComponentActivity() {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                val bigText = TextStyle(fontSize = 36.sp)
-                val mediumText = TextStyle(fontSize = 28.sp)
-                val hugeText = TextStyle(fontSize = 96.sp)
-                if (workInfo.isFinished) {
-                    Text(
-                        text = "Упражнение завершено",
-                        color = Color.Red,
-                        style = bigText,
-                        modifier = Modifier.wrapContentSize(Alignment.Center)
-                    )
-                } else if (workInfo.isPreparation) {
-                    Text(text = "Подготовка", style = bigText, color = Color(0xFFFBC02D))
-                    Text(text = timeLeft.toString(), style = hugeText)
-                    Spacer(modifier = Modifier.height(32.dp))
-                } else {
-                    Text(text = "Подход: ${workInfo.currentSet} / $paramSetNumber", style = bigText)
-                    Text(
-                        text = "Повторение: ${workInfo.currentRep} / $paramRepNumber",
-                        style = bigText
-                    )
-                    Text(text = if (workInfo.isRest) "Отдых" else "Выполнение", style = mediumText)
-                    Text(text = timeLeft.toString(), style = hugeText)
-                    Spacer(modifier = Modifier.height(32.dp))
-                }
+                TimerView()
             }
             // Нижняя панель управления: перемотка назад, пауза/воспроизведение, перемотка вперед
             if (!workInfo.isFinished) {
+                val density = androidx.compose.ui.platform.LocalDensity.current
                 val boxWidthDp = with(density) { getBoxWidthPx().toDp() }
                 // Определяем размеры и отступы для кнопок
-                val iconWidth = 64.dp
-                val pauseWidth = 96.dp
-                val totalIconsWidth = iconWidth * 2 + pauseWidth
+                val totalIconsWidth = skipIconSize * 2 + pauseSize
                 val spaceL = (boxWidthDp - totalIconsWidth) / 3f
                 Row(
                     modifier = Modifier
@@ -450,67 +353,119 @@ class ExerciseActivity : ComponentActivity() {
                 ) {
                     Spacer(modifier = Modifier.width(spaceL / 2))
                     // Назад
-                    IconButton(
-                        onClick = {
-                            skipForwardBackward(false)
-                        }, modifier = Modifier.size(iconWidth)
-                    ) {
-                        Icon(
-                            // painter = painterResource(R.drawable.ic_media_previous),
-                            imageVector = Icons.Outlined.SkipPrevious,
-                            contentDescription = "Назад",
-                            tint = Color.DarkGray,
-                            modifier = Modifier.size(iconWidth)
-                        )
-                    }
+                    ButtonBack()
                     Spacer(modifier = Modifier.width(spaceL))
                     // Пауза/воспроизведение
-                    IconButton(
-                        onClick = {
-                            viewModel.togglePaused()
-                            if (!isPaused && workInfo.isWorking) {
-                                viewModel.setTimeLeft(paramSecondsPerRep)
-                            }
-                        }, modifier = Modifier.size(pauseWidth)
-                    ) {
-                        if (isPaused) {
-                            Icon(
-                                imageVector = Icons.Outlined.PlayArrow,
-                                contentDescription = "Воспроизведение",
-                                tint = Color.DarkGray,
-                                modifier = Modifier.size(pauseWidth)
-                            )
-                        } else {
-                            Icon(
-                                imageVector = Icons.Outlined.Pause,
-                                contentDescription = "Пауза",
-                                tint = Color.DarkGray,
-                                modifier = Modifier.size(pauseWidth)
-                            )
-                        }
-                    }
+                    ButtonPlayPause()
                     Spacer(modifier = Modifier.width(spaceL))
                     // Вперёд
-                    IconButton(
-                        modifier = Modifier.size(iconWidth),
-                        onClick = {
-                            skipForwardBackward(true)
-                        },
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.SkipNext,
-                            contentDescription = "Вперёд",
-                            tint = Color.DarkGray,
-                            modifier = Modifier.size(iconWidth)
-                        )
-                    }
+                    ButtonForward()
                     Spacer(modifier = Modifier.width(spaceL / 2))
                 }
             }
         }
     }
 
+    @Composable
+    private fun TimerView() {
+        val workInfo by viewModel.workInfo.collectAsState()
+        val timeLeft by viewModel.timeLeft.collectAsState()
 
+        if (workInfo.isFinished) {
+            Text(
+                text = "Упражнение завершено",
+                color = Color.Red,
+                style = bigText,
+                modifier = Modifier.wrapContentSize(Alignment.Center)
+            )
+        } else if (workInfo.isPreparation) {
+            Text(text = "Подготовка", style = bigText, color = Color(0xFFFBC02D))
+            Text(text = timeLeft.toString(), style = hugeText)
+            Spacer(modifier = Modifier.height(32.dp))
+        } else {
+            Text(text = "Подход: ${workInfo.currentSet} / $paramSetNumber", style = bigText)
+            Text(
+                text = "Повторение: ${workInfo.currentRep} / $paramRepNumber",
+                style = bigText
+            )
+            Text(text = if (workInfo.isRest) "Отдых" else "Выполнение", style = mediumText)
+            Text(text = timeLeft.toString(), style = hugeText)
+            Spacer(modifier = Modifier.height(32.dp))
+        }
+    }
+
+    @Composable
+    private fun ButtonForward() {
+        IconButton(
+            modifier = Modifier.size(skipIconSize),
+            onClick = {
+                skipForwardBackward(true)
+            },
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.SkipNext,
+                contentDescription = "Вперёд",
+                tint = Color.DarkGray,
+                modifier = Modifier.size(skipIconSize)
+            )
+        }
+    }
+
+    @Composable
+    private fun ButtonPlayPause() {
+        val isPaused by viewModel.isPaused.collectAsState()
+        val workInfo by viewModel.workInfo.collectAsState()
+        IconButton(
+            onClick = {
+                viewModel.togglePaused()
+                if (!isPaused && workInfo.isWorking) {
+                    viewModel.setTimeLeft(paramSecondsPerRep)
+                }
+            }, modifier = Modifier.size(pauseSize)
+        ) {
+            if (isPaused) {
+                Icon(
+                    imageVector = Icons.Outlined.PlayArrow,
+                    contentDescription = "Воспроизведение",
+                    tint = Color.DarkGray,
+                    modifier = Modifier.size(pauseSize)
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Outlined.Pause,
+                    contentDescription = "Пауза",
+                    tint = Color.DarkGray,
+                    modifier = Modifier.size(pauseSize)
+                )
+            }
+        }
+    }
+
+    @Composable
+    private fun ButtonBack() {
+        IconButton(
+            onClick = {
+                skipForwardBackward(false)
+            },
+            modifier = Modifier.size(skipIconSize)
+        ) {
+            Icon(
+                // painter = painterResource(R.drawable.ic_media_previous),
+                imageVector = Icons.Outlined.SkipPrevious,
+                contentDescription = "Назад",
+                tint = Color.DarkGray,
+                modifier = Modifier.size(skipIconSize)
+            )
+        }
+    }
+
+    // Действия: отдых и упражнение
+
+    /**
+     * Выполняем отдых, если это подготовка или отдых.
+     * Если это подготовка, то говорим о начале отдыха.
+     *
+     */
     suspend fun doRest() {
         if (!isPreparation && timeLeft == paramRestSeconds) {
             // Если это не подготовка, то говорим о начале отдыха
@@ -527,6 +482,18 @@ class ExerciseActivity : ComponentActivity() {
         }
     }
 
+    /**
+     * Выполняем упражнение.
+     *
+     * Если упражнение завершено, то ничего не делаем.
+     * Если это подготовка или отдых, то отсчитываем время до завершения.
+     * Если это подход к выполнению упражнения, то отсчитываем время до завершения подхода.
+     *
+     * @param workInfo информация о текущем состоянии таймера
+     * @param timeLeft оставшееся время в секундах
+     * @param onTimeLeftChange функция обратного вызова для обновления оставшегося времени
+     * @return обновлённая информация о текущем состоянии таймера
+     */
     @OptIn(DelicateCoroutinesApi::class)
     suspend fun runExercise(
         workInfo: Work,
@@ -549,8 +516,7 @@ class ExerciseActivity : ComponentActivity() {
         }
         if (workInfo.isPreparation || workInfo.isRest) {
             // Подготовка или отдых: отсчитываем время до завершения
-            doRest(
-            )
+            doRest()
             // Возвращаем управление в главную composable процедуру
             return updateWorkAndTimeLeft()
         }
