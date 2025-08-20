@@ -51,7 +51,8 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.gson)
     implementation(libs.androidx.navigation.compose)
-    implementation(libs.androidx.material.icons.extended.android)
+    //noinspection GradleDependency
+    implementation("androidx.compose.material:material-icons-extended-android:1.7.8")
 
     testImplementation(libs.junit)
     testImplementation(libs.mockito.core)
