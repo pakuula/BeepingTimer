@@ -1,5 +1,8 @@
 package me.pakuula.beeper.util
 
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.listSaver
+
 data class Work(
     val isPreparation: Boolean = true,
     val currentRep: Int = 1,
@@ -112,5 +115,32 @@ data class Work(
         // уже на первом повторе первого подхода
         // Возврата к подготовительному этапу не предусмотрено
         return this
+    }
+
+    companion object {
+        val Saver: Saver<Work, Any> = listSaver(
+            save = {
+                listOf(
+                    it.isPreparation,
+                    it.currentRep,
+                    it.currentSet,
+                    it.isRest,
+                    it.isFinished,
+                    it.maxRep,
+                    it.maxSet
+                )
+            },
+            restore = {
+                Work(
+                    isPreparation = it[0] as Boolean,
+                    currentRep = it[1] as Int,
+                    currentSet = it[2] as Int,
+                    isRest = it[3] as Boolean,
+                    isFinished = it[4] as Boolean,
+                    maxRep = it[5] as Int,
+                    maxSet = it[6] as Int
+                )
+            }
+        )
     }
 }

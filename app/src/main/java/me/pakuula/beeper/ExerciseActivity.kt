@@ -45,6 +45,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -102,7 +103,7 @@ class ExerciseActivity : ComponentActivity() {
     @SuppressLint("ConfigurationScreenWidthHeight")
     @Composable
     fun ExerciseScreen() {
-        var workInfo by remember {
+        var workInfo by rememberSaveable(stateSaver = Work.Saver) {
             mutableStateOf(
                 Work(
                     isPreparation = paramPreparationSeconds > 0,
@@ -115,8 +116,8 @@ class ExerciseActivity : ComponentActivity() {
                 )
             )
         }
-        var isPaused by remember { mutableStateOf(false) }
-        var timeLeft by remember {
+        var isPaused by rememberSaveable { mutableStateOf(false) }
+        var timeLeft by rememberSaveable {
             mutableIntStateOf(
                 when {
                     workInfo.isPreparation -> paramPreparationSeconds
