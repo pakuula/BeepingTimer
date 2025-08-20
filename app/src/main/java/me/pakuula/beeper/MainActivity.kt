@@ -111,36 +111,36 @@ class MainActivity : ComponentActivity() {
             val defaultTimers = listOf(
                 TimerPreset(
                     id = UUID.randomUUID().toString(),
-                    title = "6 сек/8 повторов/50 сек/4 подхода",
+                    title = "",
                     secondsPerRep = 6,
                     reps = 8,
                     restSeconds = 40,
                     sets = 4
-                ),
+                ).withDefaultName(),
                 TimerPreset(
                     id = UUID.randomUUID().toString(),
-                    title = "8 сек/6 повторов/50 сек/4 подхода",
+                    title = "",
                     secondsPerRep = 8,
                     reps = 6,
                     restSeconds = 40,
                     sets = 4
-                ),
+                ).withDefaultName(),
                 TimerPreset(
                     id = UUID.randomUUID().toString(),
-                    title = "6 сек/8 повторов/8 сек/8 подходов",
+                    title = "",
                     secondsPerRep = 6,
                     reps = 8,
                     restSeconds = 8,
                     sets = 8
-                ),
+                ).withDefaultName(),
                 TimerPreset(
                     id = UUID.randomUUID().toString(),
-                    title = "8 сек/6 повторов/8 сек/8 подходов",
+                    title = "",
                     secondsPerRep = 8,
                     reps = 6,
                     restSeconds = 8,
                     sets = 8
-                )
+                ).withDefaultName()
             )
             TimerStorage.saveTimers(this, defaultTimers)
         }
@@ -168,10 +168,10 @@ class MainActivity : ComponentActivity() {
                                             this@MainActivity,
                                             ExerciseActivity::class.java
                                         ).apply {
-                                            putExtra("secondsPerRep", preset.secondsPerRep)
-                                            putExtra("reps", preset.reps)
-                                            putExtra("restSeconds", preset.restSeconds)
-                                            putExtra("sets", preset.sets)
+                                            putExtra(ExerciseActivity.SECONDS_PER_REP_KEY, preset.secondsPerRep)
+                                            putExtra(ExerciseActivity.REPS_KEY, preset.reps)
+                                            putExtra(ExerciseActivity.REST_SECONDS_KEY, preset.restSeconds)
+                                            putExtra(ExerciseActivity.SETS_KEY, preset.sets)
                                         }
                                         startActivity(intent)
                                     },
@@ -280,12 +280,12 @@ class MainActivity : ComponentActivity() {
                         composable("add") {
                             val defaultName = "Таймер ${timers.size + 1}"
                             val defaultPreset = TimerPreset(
-                                UUID.randomUUID().toString(),
-                                defaultName,
-                                8, // secondsPerRep
-                                6, // reps
-                                50, // restSeconds
-                                4, // sets
+                                id = UUID.randomUUID().toString(),
+                                title = defaultName,
+                                secondsPerRep = Defaults.SECONDS_PER_REP,
+                                reps = Defaults.REPS,
+                                restSeconds = Defaults.REST_SECONDS,
+                                sets = Defaults.SETS,
                             )
                             TimerEditScreen(
                                 preset = defaultPreset,

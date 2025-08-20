@@ -39,8 +39,21 @@ data class TimerPreset(
     val secondsPerRep: Int, // Время на одно повторение в секундах
     val reps: Int, // Количество повторений
     val restSeconds: Int, // Время отдыха между повторениями в секундах
-    val sets: Int, // Количество подходов
-)
+    val sets: Int // Количество подходов
+) {
+    fun withDefaultName(): TimerPreset {
+        if (title.isNotBlank()) return this
+        // Если название пустое, генерируем его на основе параметров
+        val secondsPerRep = if (secondsPerRep < 10) "0$secondsPerRep" else secondsPerRep.toString()
+        val restSeconds = if (restSeconds < 10) "0$restSeconds" else restSeconds.toString()
+        val sets = sets.toString()
+        val reps = reps.toString()
+        // Формируем название в формате "4 x 6 08 сек / 40 сек"
+        val title = "$sets x $reps x $secondsPerRep сек / $restSeconds сек"
+        return this.copy(title = title)
+    }
+}
+
 
 @Composable
 fun TimerPresetWidget(

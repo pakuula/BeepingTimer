@@ -60,10 +60,6 @@ class ExerciseViewModel(
         }
     }
 
-    fun isPositiveTimeLeft(): Boolean {
-        return _timeLeft.value > 0
-    }
-
     fun decreaseTimeLeft() {
         if (_timeLeft.value > 0) {
             _timeLeft.value -= 1
@@ -123,12 +119,7 @@ class ExerciseViewModel(
     fun setMuteIconRequested(request: Int) {
         _muteIconRequested.value = request
     }
-    fun resetMuteIconRequested() {
-        _muteIconRequested.value = 0
-    }
-    fun isMuteIconRequested(): Boolean {
-        return _muteIconRequested.value != 0
-    }
+
     fun increaseMuteIconRequested() {
         _muteIconRequested.value += 1
     }
@@ -138,14 +129,9 @@ class ExerciseViewModel(
     fun setShowMuteIcon(show: Boolean) {
         _showMuteIcon.value = show
     }
-    fun resetShowMuteIcon() {
-        _showMuteIcon.value = false
-    }
-    fun toggleShowMuteIcon() {
-        _showMuteIcon.value = !_showMuteIcon.value
-    }
 }
 
+@Suppress("UNCHECKED_CAST")
 class ExerciseViewModelFactory(
     private val paramPreparationSeconds: Int,
     private val paramRestSeconds: Int,

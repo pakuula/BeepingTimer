@@ -8,7 +8,7 @@ data class Settings(
     val volume: Int = 100,
     val language: String = "ru",
     val voice: String = "default",
-    val prepTime: Int = 7,
+    val prepTime: Int = Defaults.PREPARATION_SECONDS,
     val beepsBeforeStart: Int = 5,
     val beepsBeforeSet: Int = 3,
     val reverseRepCount: Boolean = true, // Новый флаг
@@ -52,14 +52,17 @@ object SettingsStorage {
     fun load(context: Context): Settings {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         return Settings(
+            prepTime = prefs.getInt(PREP_TIME, Defaults.PREPARATION_SECONDS),
+            beepsBeforeStart = prefs.getInt(BEEPS_BEFORE_START, Defaults.BEEPS_BEFORE_START),
+            beepsBeforeSet = prefs.getInt(BEEPS_BEFORE_SET, Defaults.BEEPS_BEFORE_SET),
+
             volume = prefs.getInt(VOLUME, 100),
+
             language = prefs.getString(LANGUAGE, "ru") ?: "ru",
             voice = prefs.getString(VOICE, "default") ?: "default",
-            prepTime = prefs.getInt(PREP_TIME, 7),
-            beepsBeforeStart = prefs.getInt(BEEPS_BEFORE_START, 5),
-            beepsBeforeSet = prefs.getInt(BEEPS_BEFORE_SET, 3),
             reverseRepCount = prefs.getBoolean(REVERSE_REP_COUNT, true),
             mute = prefs.getBoolean(MUTE, false) ,
+
             swipeRightToLeft = prefs.getBoolean(
                 SWIPE_RIGHT_TO_LEFT,
                 true

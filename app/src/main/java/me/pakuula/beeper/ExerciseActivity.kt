@@ -57,10 +57,25 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.delay
+import me.pakuula.beeper.ExerciseActivity.Companion.REPS_KEY
+import me.pakuula.beeper.ExerciseActivity.Companion.REST_SECONDS_KEY
+import me.pakuula.beeper.ExerciseActivity.Companion.SECONDS_PER_REP_KEY
+import me.pakuula.beeper.ExerciseActivity.Companion.SETS_KEY
 import me.pakuula.beeper.theme.BeeperTheme
 import me.pakuula.beeper.util.Work
 import java.util.Locale
 
+/**
+ * ExerciseActivity - основная активность приложения, которая управляет выполнением упражнений.
+ *
+ * Она инициализирует необходимые компоненты, такие как TextToSpeech и ToneGenerator,
+ * а также управляет состоянием выполнения упражнений через ViewModel.
+ *
+ * @property SECONDS_PER_REP_KEY ключ для передачи количества секунд на повторение.
+ * @property REPS_KEY ключ для передачи количества повторений.
+ * @property REST_SECONDS_KEY ключ для передачи количества секунд отдыха между подходами.
+ * @property SETS_KEY ключ для передачи количества подходов.
+ */
 class ExerciseActivity : ComponentActivity() {
 
     private lateinit var viewModel: ExerciseViewModel
@@ -68,30 +83,45 @@ class ExerciseActivity : ComponentActivity() {
     val timeLeft: Int get() = viewModel.timeLeft.value
     val workInfo: Work get() = viewModel.workInfo.value
     val showMuteIcon: Boolean get() = viewModel.showMuteIcon.value
-    val isPaused: Boolean get() = viewModel.isPaused.value
 
     private lateinit var textToSpeech: TextToSpeech
     private lateinit var toneGen: ToneGenerator
     val bigText = TextStyle(fontSize = 36.sp)
     val mediumText = TextStyle(fontSize = 28.sp)
     val hugeText = TextStyle(fontSize = 96.sp)
-
-    private var paramSecondsPerRep = 6
-    private var paramRepNumber = 8
-    private var paramRestSeconds = 50
-    private var paramSetNumber = 7
-    private var paramPreparationSeconds = 7
+    val phaseColor get() = when {
+        workInfo.isPreparation -> Color(0xFFFFF176) // жёлтый
+        workInfo.isRest -> Color(0xFF90CAF9)
+        workInfo.isFinished -> Color(0xFF81C784) // зелёный
+        // Выполнение упражнения
+        else -> Color(0xFFA5D6A7)
+    }
+    private var paramSecondsPerRep = Defaults.SECONDS_PER_REP
+    private var paramRepNumber = Defaults.REPS
+    private var paramRestSeconds = Defaults.REST_SECONDS
+    private var paramSetNumber = Defaults.SETS
+    private var paramPreparationSeconds = Defaults.PREPARATION_SECONDS
     private lateinit var appSettings: Settings
+
+    companion object {
+        const val SECONDS_PER_REP_KEY = "secondsPerRep"
+        const val REPS_KEY = "reps"
+        const val REST_SECONDS_KEY = "restSeconds"
+        const val SETS_KEY = "sets"
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        paramSecondsPerRep = intent.getIntExtra("secondsPerRep", 6)
-        paramRepNumber = intent.getIntExtra("reps", 8)
-        paramRestSeconds = intent.getIntExtra("restSeconds", 50)
-        paramSetNumber = intent.getIntExtra("sets", 4)
+        // Получаем параметры из Intent или используем значения по умолчанию
+        paramSecondsPerRep = intent.getIntExtra(SECONDS_PER_REP_KEY, Defaults.SECONDS_PER_REP)
+        paramRepNumber = intent.getIntExtra(REPS_KEY, Defaults.REPS)
+        paramRestSeconds = intent.getIntExtra(REST_SECONDS_KEY, Defaults.REST_SECONDS)
+        paramSetNumber = intent.getIntExtra(SETS_KEY, Defaults.SETS)
+
         appSettings = SettingsStorage.load(this)
         paramPreparationSeconds = appSettings.prepTime
+
         textToSpeech = TextToSpeech(this) { status ->
             if (status == TextToSpeech.SUCCESS) {
                 textToSpeech.language = Locale.getDefault()
@@ -157,13 +187,7 @@ class ExerciseActivity : ComponentActivity() {
             viewModel.setMuteIconRequested(0)
         }
 
-        val phaseColor = when {
-            workInfo.isPreparation -> Color(0xFFFFF176) // жёлтый
-            workInfo.isRest -> Color(0xFF90CAF9)
-            workInfo.isFinished -> Color(0xFF81C784) // зелёный
-            // Выполнение упражнения
-            else -> Color(0xFFA5D6A7)
-        }
+
 
         LaunchedEffect(workInfo, isPaused) {
             if (!isPaused) {
@@ -200,8 +224,8 @@ class ExerciseActivity : ComponentActivity() {
                         },
                         onDragEnd = {
                             // Проверяем, достаточно ли было перетянуто для переключения
-                            val coef = if (appSettings.swipeRightToLeft) -1 else 1
-                            val dragAmount = totalDragAmount * coef
+                            val direction = if (appSettings.swipeRightToLeft) -1 else 1
+                            val dragAmount = totalDragAmount * direction
                             if (dragAmount > swipeThreshold) {
                                 skipForwardBackward(true) // Перемотка вперёд
                             } else if (dragAmount < -swipeThreshold) {
@@ -238,7 +262,6 @@ class ExerciseActivity : ComponentActivity() {
         getBoxHeightPx: () -> Int,
     ) {
         val density = androidx.compose.ui.platform.LocalDensity.current
-        val timeLeft by viewModel.timeLeft.collectAsState()
         Box(modifier = boxModifierFactory()) {
             if (!workInfo.isFinished && showMuteIcon) {
                 Row(
@@ -249,21 +272,7 @@ class ExerciseActivity : ComponentActivity() {
                     horizontalArrangement = Arrangement.Start,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    IconButton(
-                        onClick = {
-                            appSettings = appSettings.copy(
-                                mute = !appSettings.mute
-                            )
-                            SettingsStorage.save(this@ExerciseActivity, appSettings)
-                        },
-                    ) {
-                        Icon(
-                            imageVector = if (appSettings.mute) Icons.AutoMirrored.Outlined.VolumeUp else Icons.AutoMirrored.Outlined.VolumeOff,
-                            contentDescription = if (appSettings.mute) "Включить звук" else "Выключить звук",
-                            tint = Color.DarkGray,
-                            modifier = Modifier.size(48.dp)
-                        )
-                    }
+                    ButtonMute()
                 }
             }
             Column(
@@ -314,21 +323,7 @@ class ExerciseActivity : ComponentActivity() {
                     horizontalArrangement = Arrangement.End,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    IconButton(
-                        onClick = {
-                            appSettings = appSettings.copy(
-                                mute = !appSettings.mute
-                            )
-                            SettingsStorage.save(this@ExerciseActivity, appSettings)
-                        },
-                    ) {
-                        Icon(
-                            imageVector = if (appSettings.mute) Icons.AutoMirrored.Outlined.VolumeUp else Icons.AutoMirrored.Outlined.VolumeOff,
-                            contentDescription = if (appSettings.mute) "Включить звук" else "Выключить звук",
-                            tint = Color.DarkGray,
-                            modifier = Modifier.size(48.dp)
-                        )
-                    }
+                    ButtonMute()
                 }
             }
             Column(
@@ -363,6 +358,25 @@ class ExerciseActivity : ComponentActivity() {
                     Spacer(modifier = Modifier.width(spaceL / 2))
                 }
             }
+        }
+    }
+
+    @Composable
+    private fun ButtonMute() {
+        IconButton(
+            onClick = {
+                appSettings = appSettings.copy(
+                    mute = !appSettings.mute
+                )
+                SettingsStorage.save(this@ExerciseActivity, appSettings)
+            },
+        ) {
+            Icon(
+                imageVector = if (appSettings.mute) Icons.AutoMirrored.Outlined.VolumeUp else Icons.AutoMirrored.Outlined.VolumeOff,
+                contentDescription = if (appSettings.mute) "Включить звук" else "Выключить звук",
+                tint = Color.DarkGray,
+                modifier = Modifier.size(48.dp)
+            )
         }
     }
 
@@ -461,6 +475,10 @@ class ExerciseActivity : ComponentActivity() {
 
     // Действия: отдых и упражнение
 
+    fun speakTimeLeft() {
+        speak("Начинаем через $timeLeft секунд")
+    }
+
     /**
      * Выполняем отдых, если это подготовка или отдых.
      * Если это подготовка, то говорим о начале отдыха.
@@ -473,6 +491,9 @@ class ExerciseActivity : ComponentActivity() {
         }
         // var timeLeft = viewModel.timeLeft
         while (timeLeft > 0) {
+            if (!(workInfo.isRest && timeLeft == paramRestSeconds) && timeLeft %10 == 0) {
+                speakTimeLeft()
+            }
             if (timeLeft <= appSettings.beepsBeforeStart) {
                 toneGen.startTone(TONE_PROP_BEEP, 100)
             }
