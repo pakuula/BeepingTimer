@@ -51,6 +51,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -176,6 +177,8 @@ class ExerciseActivity : ComponentActivity() {
         val swipeThreshold = 100.dp
         var totalDragAmount = 0.dp
 
+        var boxWidthPx by remember { mutableStateOf(0) }
+        val density = androidx.compose.ui.platform.LocalDensity.current
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -205,6 +208,9 @@ class ExerciseActivity : ComponentActivity() {
                         change.consume()
                         totalDragAmount += dragAmount.dp
                     }
+                }
+                .onGloballyPositioned { coordinates ->
+                    boxWidthPx = coordinates.size.width
                 }
         ) {
             if (!workInfo.isFinished && showMuteIcon) {
@@ -261,19 +267,19 @@ class ExerciseActivity : ComponentActivity() {
             }
             // Нижняя панель управления: перемотка назад, пауза/воспроизведение, перемотка вперед
             if (!workInfo.isFinished) {
+                val boxWidthDp = with(density) { boxWidthPx.toDp() }
                 // Получаем ширину экрана
-                val screenWidth =
-                    androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp.dp
+                androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp.dp
                 // Определяем размеры и отступы для кнопок
                 val iconWidth = 64.dp
                 val pauseWidth = 96.dp
                 val totalIconsWidth = iconWidth * 2 + pauseWidth
-                val spaceL = (screenWidth - totalIconsWidth) / 3f
+                val spaceL = (boxWidthDp - totalIconsWidth) / 3f
                 Row(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .padding(bottom = 16.dp)
-                        .fillMaxWidth(),
+                        .width(boxWidthDp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Spacer(modifier = Modifier.width(spaceL / 2))
