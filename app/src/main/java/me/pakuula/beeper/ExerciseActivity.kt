@@ -41,11 +41,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -62,6 +61,12 @@ import me.pakuula.beeper.util.Work
 import java.util.Locale
 
 class ExerciseActivity : ComponentActivity() {
+
+    private lateinit var viewModel: ExerciseViewModel
+    val isPreparation: Boolean get() = viewModel.workInfo.value.isPreparation
+    val timeLeft: Int get() = viewModel.timeLeft.value
+    val workInfo: Work get() = viewModel.workInfo.value
+
     private lateinit var textToSpeech: TextToSpeech
     private lateinit var toneGen: ToneGenerator
 
@@ -87,6 +92,22 @@ class ExerciseActivity : ComponentActivity() {
             }
         }
         toneGen = ToneGenerator(AudioManager.STREAM_MUSIC, appSettings.volume)
+        // Инициализация viewModel с актуальными параметрами
+        viewModel = androidx.lifecycle.ViewModelProvider(
+            this, ExerciseViewModelFactory(
+                paramPreparationSeconds, paramRestSeconds, paramSecondsPerRep
+            )
+        )[ExerciseViewModel::class.java]
+        // Инициализация workInfo в viewModel только если оно ещё не восстановлено
+        if (!viewModel.isWorkInfoInitialized()) {
+            viewModel.initWorkInfo(
+                isPreparation = paramPreparationSeconds > 0,
+                maxRep = paramRepNumber,
+                maxSet = paramSetNumber
+            )
+            viewModel.resetTimeLeft()
+        }
+
         setContent {
             BeeperTheme {
                 ExerciseScreen()
@@ -100,44 +121,35 @@ class ExerciseActivity : ComponentActivity() {
         toneGen.release()
     }
 
+    // skipForwardBackward теперь работает через viewModel
+    fun skipForwardBackward(forward: Boolean) {
+        if (forward) {
+            viewModel.nextWork()
+        } else {
+            viewModel.prevWork()
+        }
+    }
 
     @SuppressLint("ConfigurationScreenWidthHeight")
     @Composable
     fun ExerciseScreen() {
-        var workInfo by rememberSaveable(stateSaver = Work.Saver) {
-            mutableStateOf(
-                Work(
-                    isPreparation = paramPreparationSeconds > 0,
-                    maxRep = paramRepNumber,
-                    maxSet = paramSetNumber,
-                    currentRep = 1,
-                    currentSet = 1,
-                    isRest = false,
-                    isFinished = false
-                )
-            )
-        }
-        var isPaused by rememberSaveable { mutableStateOf(false) }
-        var timeLeft by rememberSaveable {
-            mutableIntStateOf(
-                when {
-                    workInfo.isPreparation -> paramPreparationSeconds
-                    workInfo.isRest -> paramRestSeconds
-                    workInfo.isFinished -> 0
-                    else -> paramSecondsPerRep
-                }
-            )
-        }
-        var muteIconRequested by remember { mutableIntStateOf(0) }
-        var showMuteIcon by remember { mutableStateOf(false) }
+        // Получаем состояние паузы из viewModel
+        val isPaused by viewModel.isPaused.collectAsState()
+        // Получаем workInfo из viewModel
+        val workInfo by viewModel.workInfo.collectAsState()
+        // Получаем оставшееся время из viewModel
+        val timeLeft by viewModel.timeLeft.collectAsState()
+
+        // Получаем muteIconRequested и showMuteIcon из viewModel
+        val muteIconRequested by viewModel.muteIconRequested.collectAsState()
+        val showMuteIcon by viewModel.showMuteIcon.collectAsState()
 
         LaunchedEffect(muteIconRequested) {
             if (muteIconRequested == 0) return@LaunchedEffect
-            // Показываем иконку, если пользователь кликнул по экрану
-            showMuteIcon = true
-            // Скрываем иконку через 5 секунд
+            viewModel.setShowMuteIcon(true)
             delay(5000)
-            showMuteIcon = false
+            viewModel.setShowMuteIcon(false)
+            viewModel.setMuteIconRequested(0)
         }
 
         val phaseColor = when {
@@ -148,28 +160,15 @@ class ExerciseActivity : ComponentActivity() {
             else -> Color(0xFFA5D6A7)
         }
 
-        val skipForwardBackward = {
-            forward: Boolean ->
-            workInfo = if (forward) {
-                workInfo.next()
-            } else {
-                workInfo.prev()
-            }
-            when {
-                workInfo.isWorking -> timeLeft = paramSecondsPerRep
-                workInfo.isRest -> timeLeft = paramRestSeconds
-                workInfo.isPreparation -> timeLeft = paramPreparationSeconds
-            }
-        }
-
         LaunchedEffect(workInfo, isPaused) {
             if (!isPaused) {
-                workInfo = runExercise(
-                    workInfo = workInfo,
-                    timeLeft = timeLeft,
-                ) { newTimeLeft ->
-                    timeLeft = newTimeLeft
-                }
+                viewModel.setWorkInfo(
+                    runExercise(
+                        workInfo = workInfo,
+                        timeLeft = timeLeft,
+                    ) { newTimeLeft ->
+                        viewModel.setTimeLeft(newTimeLeft)
+                    })
             }
         }
 
@@ -177,42 +176,41 @@ class ExerciseActivity : ComponentActivity() {
         val swipeThreshold = 100.dp
         var totalDragAmount = 0.dp
 
-        var boxWidthPx by remember { mutableStateOf(0) }
+        var boxWidthPx by remember { mutableIntStateOf(0) }
         val density = androidx.compose.ui.platform.LocalDensity.current
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(phaseColor)
-                .systemBarsPadding()
-                .clickable {
-                    muteIconRequested++
+        val boxModifier = Modifier
+            .fillMaxSize()
+            .background(phaseColor)
+            .systemBarsPadding()
+            .clickable {
+                viewModel.increaseMuteIconRequested()
+            }
+            .pointerInput(Unit) {
+                detectHorizontalDragGestures(
+                    onDragStart = {
+                        totalDragAmount =
+                            0.dp // Сбрасываем накопленное значение при начале перетаскивания
+                    },
+                    onDragEnd = {
+                        // Проверяем, достаточно ли было перетянуто для переключения
+                        val coef = if (appSettings.swipeRightToLeft) -1 else 1
+                        val dragAmount = totalDragAmount * coef
+                        if (dragAmount > swipeThreshold) {
+                            skipForwardBackward(true) // Перемотка вперёд
+                        } else if (dragAmount < -swipeThreshold) {
+                            skipForwardBackward(false) // Перемотка назад
+                        }
+                        totalDragAmount = 0.dp // Сбрасываем после завершения перетаскивания
+                    },
+                ) { change, dragAmount ->
+                    change.consume()
+                    totalDragAmount += dragAmount.dp
                 }
-                .pointerInput(Unit) {
-                    detectHorizontalDragGestures(
-                        onDragStart = {
-                            totalDragAmount = 0.dp // Сбрасываем накопленное значение при начале перетаскивания
-                        },
-                        onDragEnd = {
-                            // Проверяем, достаточно ли было перетянуто для переключения
-                            val coef = if (appSettings.swipeRightToLeft) -1 else 1
-                            val dragAmount = totalDragAmount * coef
-                            if (dragAmount > swipeThreshold) {
-                                skipForwardBackward(true) // Перемотка вперёд
-                            } else if (dragAmount < -swipeThreshold) {
-                                skipForwardBackward(false) // Перемотка назад
-                            }
-                            totalDragAmount = 0.dp // Сбрасываем после завершения перетаскивания
-                        },
-                    ) {
-                        change, dragAmount ->
-                        change.consume()
-                        totalDragAmount += dragAmount.dp
-                    }
-                }
-                .onGloballyPositioned { coordinates ->
-                    boxWidthPx = coordinates.size.width
-                }
-        ) {
+            }
+            .onGloballyPositioned { coordinates ->
+                boxWidthPx = coordinates.size.width
+            }
+        Box(modifier = boxModifier) {
             if (!workInfo.isFinished && showMuteIcon) {
                 Row(
                     modifier = Modifier
@@ -249,7 +247,8 @@ class ExerciseActivity : ComponentActivity() {
                 val hugeText = TextStyle(fontSize = 96.sp)
                 if (workInfo.isFinished) {
                     Text(
-                        text = "Упражнение завершено", color = Color.Red,
+                        text = "Упражнение завершено",
+                        color = Color.Red,
                         style = bigText,
                         modifier = Modifier.wrapContentSize(Alignment.Center)
                     )
@@ -259,7 +258,10 @@ class ExerciseActivity : ComponentActivity() {
                     Spacer(modifier = Modifier.height(32.dp))
                 } else {
                     Text(text = "Подход: ${workInfo.currentSet} / $paramSetNumber", style = bigText)
-                    Text(text = "Повторение: ${workInfo.currentRep} / $paramRepNumber", style = bigText)
+                    Text(
+                        text = "Повторение: ${workInfo.currentRep} / $paramRepNumber",
+                        style = bigText
+                    )
                     Text(text = if (workInfo.isRest) "Отдых" else "Выполнение", style = mediumText)
                     Text(text = timeLeft.toString(), style = hugeText)
                     Spacer(modifier = Modifier.height(32.dp))
@@ -279,16 +281,14 @@ class ExerciseActivity : ComponentActivity() {
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .padding(bottom = 16.dp)
-                        .width(boxWidthDp),
-                    verticalAlignment = Alignment.CenterVertically
+                        .width(boxWidthDp), verticalAlignment = Alignment.CenterVertically
                 ) {
                     Spacer(modifier = Modifier.width(spaceL / 2))
                     // Назад
                     IconButton(
                         onClick = {
                             skipForwardBackward(false)
-                        },
-                        modifier = Modifier.size(iconWidth)
+                        }, modifier = Modifier.size(iconWidth)
                     ) {
                         Icon(
                             // painter = painterResource(R.drawable.ic_media_previous),
@@ -302,12 +302,11 @@ class ExerciseActivity : ComponentActivity() {
                     // Пауза/воспроизведение
                     IconButton(
                         onClick = {
-                            isPaused = !isPaused
+                            viewModel.togglePaused()
                             if (!isPaused && workInfo.isWorking) {
-                                timeLeft = paramSecondsPerRep
+                                viewModel.setTimeLeft(paramSecondsPerRep)
                             }
-                        },
-                        modifier = Modifier.size(pauseWidth)
+                        }, modifier = Modifier.size(pauseWidth)
                     ) {
                         if (isPaused) {
                             Icon(
@@ -346,23 +345,20 @@ class ExerciseActivity : ComponentActivity() {
         }
     }
 
-    suspend fun doRest(
-        remainingSeconds: Int,
-        onTimeLeftChange: (Int) -> Unit,
-        isPreparation: Boolean = false,
-    ) {
-        if (!isPreparation && remainingSeconds == paramRestSeconds) {
+
+    suspend fun doRest() {
+        if (!isPreparation && timeLeft == paramRestSeconds) {
             // Если это не подготовка, то говорим о начале отдыха
             speak("Отдых $paramRestSeconds секунд")
         }
-        var timeLeft = remainingSeconds
+        // var timeLeft = viewModel.timeLeft
         while (timeLeft > 0) {
             if (timeLeft <= appSettings.beepsBeforeStart) {
                 toneGen.startTone(TONE_PROP_BEEP, 100)
             }
-            onTimeLeftChange(timeLeft)
+            // onTimeLeftChange(timeLeft)
             delay(1000)
-            timeLeft--
+            viewModel.decreaseTimeLeft()
         }
     }
 
@@ -389,8 +385,6 @@ class ExerciseActivity : ComponentActivity() {
         if (workInfo.isPreparation || workInfo.isRest) {
             // Подготовка или отдых: отсчитываем время до завершения
             doRest(
-                remainingSeconds = timeLeft,
-                onTimeLeftChange = onTimeLeftChange,
             )
             // Возвращаем управление в главную composable процедуру
             return updateWorkAndTimeLeft()
@@ -443,10 +437,7 @@ class ExerciseActivity : ComponentActivity() {
     private fun speak(text: String) {
         if (appSettings.mute) return
         textToSpeech.speak(
-            text,
-            QUEUE_FLUSH,
-            null,
-            null
+            text, QUEUE_FLUSH, null, null
         )
     }
 }

@@ -1,7 +1,7 @@
 package me.pakuula.beeper.util
 
-import androidx.compose.runtime.saveable.Saver
-import androidx.compose.runtime.saveable.listSaver
+import android.os.Parcel
+import android.os.Parcelable
 
 data class Work(
     val isPreparation: Boolean = true,
@@ -11,7 +11,7 @@ data class Work(
     val isFinished: Boolean = false,
     val maxRep: Int,
     val maxSet: Int
-) {
+) : Parcelable {
     val isWorking = !isFinished && !isPreparation && !isRest
 
     init {
@@ -58,8 +58,6 @@ data class Work(
         return this.copy(isRest = rest)
     }
 
-
-
     fun next(): Work {
         if (isFinished) {
             return this
@@ -79,7 +77,6 @@ data class Work(
             return this.copy(currentRep = currentRep + 1)
         }
     }
-
 
     fun prev(): Work {
         if (isPreparation) {
@@ -117,30 +114,32 @@ data class Work(
         return this
     }
 
-    companion object {
-        val Saver: Saver<Work, Any> = listSaver(
-            save = {
-                listOf(
-                    it.isPreparation,
-                    it.currentRep,
-                    it.currentSet,
-                    it.isRest,
-                    it.isFinished,
-                    it.maxRep,
-                    it.maxSet
-                )
-            },
-            restore = {
-                Work(
-                    isPreparation = it[0] as Boolean,
-                    currentRep = it[1] as Int,
-                    currentSet = it[2] as Int,
-                    isRest = it[3] as Boolean,
-                    isFinished = it[4] as Boolean,
-                    maxRep = it[5] as Int,
-                    maxSet = it[6] as Int
-                )
-            }
-        )
+    override fun writeToParcel(parcel: Parcel, flags: Int) {
+        parcel.writeByte(if (isPreparation) 1 else 0)
+        parcel.writeInt(currentRep)
+        parcel.writeInt(currentSet)
+        parcel.writeByte(if (isRest) 1 else 0)
+        parcel.writeByte(if (isFinished) 1 else 0)
+        parcel.writeInt(maxRep)
+        parcel.writeInt(maxSet)
+    }
+
+    override fun describeContents(): Int = 0
+
+    companion object CREATOR : Parcelable.Creator<Work> {
+        override fun createFromParcel(parcel: Parcel): Work {
+            return Work(
+                isPreparation = parcel.readByte().toInt() != 0,
+                currentRep = parcel.readInt(),
+                currentSet = parcel.readInt(),
+                isRest = parcel.readByte().toInt() != 0,
+                isFinished = parcel.readByte().toInt() != 0,
+                maxRep = parcel.readInt(),
+                maxSet = parcel.readInt()
+            )
+        }
+
+        override fun newArray(size: Int): Array<Work?> = arrayOfNulls(size)
+
     }
 }
