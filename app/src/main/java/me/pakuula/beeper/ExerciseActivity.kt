@@ -45,6 +45,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -262,6 +263,8 @@ class ExerciseActivity : ComponentActivity() {
         getBoxHeightPx: () -> Int,
     ) {
         val density = androidx.compose.ui.platform.LocalDensity.current
+        val showMuteIcon by viewModel.showMuteIcon.collectAsState()
+        val workInfo by viewModel.workInfo.collectAsState()
         Box(modifier = boxModifierFactory()) {
             if (!workInfo.isFinished && showMuteIcon) {
                 Row(
@@ -313,6 +316,8 @@ class ExerciseActivity : ComponentActivity() {
         boxModifierFactory: () -> Modifier,
         getBoxWidthPx: () -> Int,
     ) {
+        val showMuteIcon by viewModel.showMuteIcon.collectAsState()
+        val workInfo by viewModel.workInfo.collectAsState()
         Box(modifier = boxModifierFactory()) {
             if (!workInfo.isFinished && showMuteIcon) {
                 Row(
@@ -363,17 +368,21 @@ class ExerciseActivity : ComponentActivity() {
 
     @Composable
     private fun ButtonMute() {
+        var showOff : Boolean by remember {
+            mutableStateOf(appSettings.mute)
+        }
         IconButton(
             onClick = {
                 appSettings = appSettings.copy(
                     mute = !appSettings.mute
                 )
                 SettingsStorage.save(this@ExerciseActivity, appSettings)
+                showOff = !showOff
             },
         ) {
             Icon(
-                imageVector = if (appSettings.mute) Icons.AutoMirrored.Outlined.VolumeUp else Icons.AutoMirrored.Outlined.VolumeOff,
-                contentDescription = if (appSettings.mute) "Включить звук" else "Выключить звук",
+                imageVector = if (showOff) Icons.AutoMirrored.Outlined.VolumeUp else Icons.AutoMirrored.Outlined.VolumeOff,
+                contentDescription = if (showOff) "Включить звук" else "Выключить звук",
                 tint = Color.DarkGray,
                 modifier = Modifier.size(48.dp)
             )
