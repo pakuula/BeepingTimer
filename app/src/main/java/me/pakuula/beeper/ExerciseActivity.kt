@@ -1,7 +1,6 @@
 package me.pakuula.beeper
 
 //noinspection SuspiciousImport
-
 import android.annotation.SuppressLint
 import android.content.res.Configuration.ORIENTATION_LANDSCAPE
 import android.media.AudioManager
@@ -22,6 +21,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -53,7 +53,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.DelicateCoroutinesApi
@@ -79,10 +84,18 @@ import java.util.Locale
  */
 class ExerciseActivity : ComponentActivity() {
 
+    val digitalFont = FontFamily(
+        Font(R.font.ds_digi, FontWeight.Normal),
+
+        )
+
+
     private lateinit var viewModel: ExerciseViewModel
     val isPreparation: Boolean get() = viewModel.workInfo.value.isPreparation
     val timeLeft: Int get() = viewModel.timeLeft.value
     val workInfo: Work get() = viewModel.workInfo.value
+
+    @Suppress("unused")
     val showMuteIcon: Boolean get() = viewModel.showMuteIcon.value
 
     private lateinit var textToSpeech: TextToSpeech
@@ -90,13 +103,14 @@ class ExerciseActivity : ComponentActivity() {
     val bigText = TextStyle(fontSize = 36.sp)
     val mediumText = TextStyle(fontSize = 28.sp)
     val hugeText = TextStyle(fontSize = 96.sp)
-    val phaseColor get() = when {
-        workInfo.isPreparation -> Color(0xFFFFF176) // жёлтый
-        workInfo.isRest -> Color(0xFF90CAF9)
-        workInfo.isFinished -> Color(0xFF81C784) // зелёный
-        // Выполнение упражнения
-        else -> Color(0xFFA5D6A7)
-    }
+    val phaseColor
+        get() = when {
+            workInfo.isPreparation -> Color(0xFFFFF176) // жёлтый
+            workInfo.isRest -> Color(0xFF90CAF9)
+            workInfo.isFinished -> Color(0xFF81C784) // зелёный
+            // Выполнение упражнения
+            else -> Color(0xFFA5D6A7)
+        }
     private var paramSecondsPerRep = Defaults.SECONDS_PER_REP
     private var paramRepNumber = Defaults.REPS
     private var paramRestSeconds = Defaults.REST_SECONDS
@@ -135,7 +149,7 @@ class ExerciseActivity : ComponentActivity() {
                 paramPreparationSeconds, paramRestSeconds, paramSecondsPerRep
             )
         )[ExerciseViewModel::class.java]
-        // Инициализация workInfo в viewModel только если оно ещё не восстановлено
+        // Инициализация workInfo в viewModel только есл�� оно ещё не восстановлено
         if (!viewModel.isWorkInfoInitialized()) {
             viewModel.initWorkInfo(
                 isPreparation = paramPreparationSeconds > 0,
@@ -262,44 +276,45 @@ class ExerciseActivity : ComponentActivity() {
         boxModifierFactory: () -> Modifier,
         getBoxHeightPx: () -> Int,
     ) {
-        val density = androidx.compose.ui.platform.LocalDensity.current
+        val density = LocalDensity.current
         val showMuteIcon by viewModel.showMuteIcon.collectAsState()
         val workInfo by viewModel.workInfo.collectAsState()
-        Box(modifier = boxModifierFactory()) {
-            if (!workInfo.isFinished && showMuteIcon) {
-                Row(
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .padding(all = 16.dp)
-                        .fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Start,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    ButtonMute()
-                }
-            }
-            Column(
-                modifier = Modifier.align(Alignment.Center),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
+        Row(modifier = boxModifierFactory()) {
+            // Левая часть: TimerView
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight(),
+                contentAlignment = Alignment.Center
             ) {
+                if (!workInfo.isFinished && showMuteIcon) {
+                    Row(
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(all = 16.dp)
+                            .fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Start,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        ButtonMute()
+                    }
+                }
                 TimerView()
             }
-            // Нижняя панель управления: перемотка назад, пауза/воспроизведение, перемотка вперед
+            // Правая часть: тулбар с кнопками
             if (!workInfo.isFinished) {
                 val boxHeightDp = with(density) { getBoxHeightPx().toDp() }
-                // Определяем размеры и отступы для кнопок
                 val totalIconsSize = skipIconSize * 2 + pauseSize
                 val spaceL = (boxHeightDp - totalIconsSize) / 3f
                 Column(
                     modifier = Modifier
-                        .align(Alignment.CenterEnd)
-                        .padding(bottom = 16.dp)
-                        .height(boxHeightDp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                        .width(pauseSize)
+                        .fillMaxHeight()
+                        .padding(8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
                 ) {
                     Spacer(modifier = Modifier.height(spaceL / 2))
-                    // Назад
                     ButtonBack()
                     Spacer(modifier = Modifier.height(spaceL))
                     ButtonPlayPause()
@@ -336,31 +351,27 @@ class ExerciseActivity : ComponentActivity() {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                TimerView()
-            }
-            // Нижняя панель управления: перемотка назад, пауза/воспроизведение, перемотка вперед
-            if (!workInfo.isFinished) {
-                val density = androidx.compose.ui.platform.LocalDensity.current
-                val boxWidthDp = with(density) { getBoxWidthPx().toDp() }
-                // Определяем размеры и отступы для кнопок
-                val totalIconsWidth = skipIconSize * 2 + pauseSize
-                val spaceL = (boxWidthDp - totalIconsWidth) / 3f
-                Row(
+                // Таймер и числа
+                Box(
                     modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(bottom = 16.dp)
-                        .width(boxWidthDp), verticalAlignment = Alignment.CenterVertically
+                        .weight(1f)
+                        .fillMaxWidth()
                 ) {
-                    Spacer(modifier = Modifier.width(spaceL / 2))
-                    // Назад
-                    ButtonBack()
-                    Spacer(modifier = Modifier.width(spaceL))
-                    // Пауза/воспроизведение
-                    ButtonPlayPause()
-                    Spacer(modifier = Modifier.width(spaceL))
-                    // Вперёд
-                    ButtonForward()
-                    Spacer(modifier = Modifier.width(spaceL / 2))
+                    TimerView()
+                }
+                // Кнопки управления
+                if (!workInfo.isFinished) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(96.dp), // фиксированная высота для кнопок
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        ButtonBack()
+                        ButtonPlayPause()
+                        ButtonForward()
+                    }
                 }
             }
         }
@@ -368,7 +379,7 @@ class ExerciseActivity : ComponentActivity() {
 
     @Composable
     private fun ButtonMute() {
-        var showOff : Boolean by remember {
+        var showOff: Boolean by remember {
             mutableStateOf(appSettings.mute)
         }
         IconButton(
@@ -393,7 +404,8 @@ class ExerciseActivity : ComponentActivity() {
     private fun TimerView() {
         val workInfo by viewModel.workInfo.collectAsState()
         val timeLeft by viewModel.timeLeft.collectAsState()
-
+        val density = androidx.compose.ui.platform.LocalDensity.current
+        val orientation = resources.configuration.orientation
         if (workInfo.isFinished) {
             Text(
                 text = "Упражнение завершено",
@@ -401,19 +413,223 @@ class ExerciseActivity : ComponentActivity() {
                 style = bigText,
                 modifier = Modifier.wrapContentSize(Alignment.Center)
             )
-        } else if (workInfo.isPreparation) {
-            Text(text = "Подготовка", style = bigText, color = Color(0xFFFBC02D))
-            Text(text = timeLeft.toString(), style = hugeText)
-            Spacer(modifier = Modifier.height(32.dp))
+            return
+        }
+        if (orientation == ORIENTATION_LANDSCAPE) {
+            TimerViewHorizontal(workInfo, timeLeft)
         } else {
-            Text(text = "Подход: ${workInfo.currentSet} / $paramSetNumber", style = bigText)
-            Text(
-                text = "Повторение: ${workInfo.currentRep} / $paramRepNumber",
-                style = bigText
-            )
-            Text(text = if (workInfo.isRest) "Отдых" else "Выполнение", style = mediumText)
-            Text(text = timeLeft.toString(), style = hugeText)
-            Spacer(modifier = Modifier.height(32.dp))
+            TimerViewVertical(workInfo, timeLeft)
+        }
+    }
+
+    @Composable
+    private fun TimerViewVertical(workInfo: Work, timeLeft: Int) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                // Верхняя часть: "подходы" и "повторения" рядом
+                var upperBoxHeightPx by remember { mutableStateOf(0) }
+                var setLabelWidthPx by remember { mutableStateOf(0) }
+                var repLabelWidthPx by remember { mutableStateOf(0) }
+                val setLabel = "Подходы"
+                val repLabel = "Повторения"
+                var labelFontSizeSp: Float = 0f
+                // Виджет с числом подходов и повторений
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .onGloballyPositioned { coordinates ->
+                            upperBoxHeightPx = coordinates.size.height
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    // Вычисляем размер шрифта для цифр и надписей "Подходы" и "Повторения"
+                    val density = LocalDensity.current
+                    val fontSizeSp =
+                        with(density) { (upperBoxHeightPx * 0.5f).toSp() } // 50% высоты для цифр
+                    // Получаем ширину каждой коробочки
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Top,
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(all = 8.dp)
+                                .onGloballyPositioned { coordinates ->
+                                    setLabelWidthPx = coordinates.size.width
+                                }
+                        ) {
+                            // пусто, только для измерения ширины
+                        }
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Top,
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(all = 8.dp)
+                                .onGloballyPositioned { coordinates ->
+                                    repLabelWidthPx = coordinates.size.width
+                                }
+                        ) {
+                            // пусто, только для измерения ширины
+                        }
+                    }
+                    // Вычисляем максимальный размер шрифта для надписей
+                    val setLabelFontSizeSp = remember(setLabelWidthPx) {
+                        calculateMaxFontSizeSp(setLabel, setLabelWidthPx, density)
+                    }
+                    val repLabelFontSizeSp = remember(repLabelWidthPx) {
+                        calculateMaxFontSizeSp(repLabel, repLabelWidthPx, density)
+                    }
+                    labelFontSizeSp = minOf(setLabelFontSizeSp, repLabelFontSizeSp)
+                    // Отрисовываем надписи и цифры
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Top,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(
+                                text = setLabel,
+                                fontSize = labelFontSizeSp.sp,
+                                color = Color.Gray,
+                                maxLines = 1
+                            )
+                            Text(
+                                text = (paramSetNumber - workInfo.currentSet + 1).toString(),
+                                fontFamily = digitalFont,
+                                fontSize = fontSizeSp,
+                                color = Color.DarkGray
+                            )
+                        }
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Top,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(
+                                text = repLabel,
+                                fontSize = labelFontSizeSp.sp,
+                                color = Color.Gray,
+                                maxLines = 1
+                            )
+                            Text(
+                                text = (paramRepNumber - workInfo.currentRep + 1).toString(),
+                                fontFamily = digitalFont,
+                                fontSize = fontSizeSp,
+                                color = Color.DarkGray
+                            )
+                        }
+                    }
+                }
+                // Нижняя часть: таймер
+                var lowerBoxHeightPx by remember { mutableStateOf(0) }
+                Box(
+                    modifier = Modifier
+                        .weight(1.5f)
+                        .fillMaxWidth()
+                        .onGloballyPositioned { coordinates ->
+                            lowerBoxHeightPx = coordinates.size.height
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    val density = LocalDensity.current
+                    val timerFontSizeSp = with(density) { (lowerBoxHeightPx * 0.8f).toSp() }
+                    Column (
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = if (workInfo.isPreparation) "Подготовка"
+                            else if (workInfo.isRest) "Отдых"
+                            else "Работаем",
+                            fontSize = labelFontSizeSp.sp,
+                            color = Color.Gray,
+                            modifier = Modifier.align(Alignment.CenterHorizontally)
+                        )
+                        Text(
+                            text = timeLeft.toString(),
+                            fontFamily = digitalFont,
+                            fontSize = timerFontSizeSp,
+                            color = Color.Black,
+                            modifier = Modifier.align(Alignment.CenterHorizontally)
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    // Вспомогательная функция для вычисления максимального размера шрифта
+    private fun calculateMaxFontSizeSp(text: String, boxWidthPx: Int, density: Density): Float {
+        val coeff = 0.6f
+        val maxFontSizePx =
+            if (text.isNotEmpty() && boxWidthPx > 0) boxWidthPx / (text.length * coeff) else 12f
+        return with(density) { maxFontSizePx.toSp().value }
+    }
+
+    @Composable
+    private fun TimerViewHorizontal(workInfo: Work, timeLeft: Int) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            Row(modifier = Modifier.fillMaxSize()) {
+                // --- Три секции: подходы, повторения, таймер ---
+                val labels = listOf("Подходы", "Повторения", if (workInfo.isPreparation) "Подготовка" else if (workInfo.isRest) "Отдых" else "Работаем")
+                val values = listOf(
+                    (paramSetNumber - workInfo.currentSet + 1).toString(),
+                    (paramRepNumber - workInfo.currentRep + 1).toString(),
+                    timeLeft.toString()
+                )
+                val sectionWidthsPx = remember { mutableStateOf(listOf(0, 0, 0)) }
+                val density = LocalDensity.current
+                // Вычисляем максимальный размер шрифта для подписей
+                val labelFontSizes = labels.mapIndexed { i, label ->
+                    calculateMaxFontSizeSp(label, sectionWidthsPx.value.getOrNull(i) ?: 0, density)
+                }
+                val labelFontSizeSp = labelFontSizes.minOrNull() ?: 12f
+                // Отрисовываем секции
+                Row(modifier = Modifier.weight(1f)) {
+                    for (i in 0..2) {
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                                .padding(8.dp)
+                                .onGloballyPositioned { coordinates ->
+                                    val widths = sectionWidthsPx.value.toMutableList()
+                                    widths[i] = coordinates.size.width
+                                    sectionWidthsPx.value = widths
+                                },
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Text(
+                                text = labels[i],
+                                fontSize = labelFontSizeSp.sp,
+                                color = Color.Gray,
+                                maxLines = 1
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            val valueFontSizeSp = with(density) { (sectionWidthsPx.value.getOrNull(i)?.times(0.95f) ?: 48f).toSp() }
+                            Text(
+                                text = values[i],
+                                fontFamily = digitalFont,
+                                fontSize = valueFontSizeSp,
+                                color = if (i == 2) Color.Black else Color.DarkGray
+                            )
+                        }
+                    }
+                }
+                // --- тулбар с кнопками удалён ---
+            }
         }
     }
 
@@ -500,7 +716,7 @@ class ExerciseActivity : ComponentActivity() {
         }
         // var timeLeft = viewModel.timeLeft
         while (timeLeft > 0) {
-            if (!(workInfo.isRest && timeLeft == paramRestSeconds) && timeLeft %10 == 0) {
+            if (!(workInfo.isRest && timeLeft == paramRestSeconds) && timeLeft % 10 == 0) {
                 speakTimeLeft()
             }
             if (timeLeft <= appSettings.beepsBeforeStart) {
