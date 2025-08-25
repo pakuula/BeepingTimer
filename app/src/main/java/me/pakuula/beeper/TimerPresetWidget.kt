@@ -41,6 +41,7 @@ data class TimerPreset(
     val restSeconds: Int, // Время отдыха между повторениями в секундах
     val sets: Int // Количество подходов
 ) {
+    @Suppress("unused")
     fun withDefaultName(): TimerPreset {
         if (title.isNotBlank()) return this
         // Если название пустое, генерируем его на основе параметров
@@ -49,7 +50,9 @@ data class TimerPreset(
         val sets = sets.toString()
         val reps = reps.toString()
         // Формируем название в формате "4 x 6 08 сек / 40 сек"
-        val title = "$sets x $reps x $secondsPerRep сек / $restSeconds сек"
+//        val unit = stringResource(R.string.sec_short)
+        val unit = "сек"
+        val title = "$sets x $reps x $secondsPerRep $unit / $restSeconds $unit"
         return this.copy(title = title)
     }
 }
