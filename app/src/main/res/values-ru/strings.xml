@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Таймер для тренажерного зала</string>
+    <string name="app_name">Пикающий таймер</string>
     <string name="sound_on">Включить звук</string>
     <string name="sound_off">Выключить звук</string>
     <string name="exercise_finished">Упражнение завершено</string>
