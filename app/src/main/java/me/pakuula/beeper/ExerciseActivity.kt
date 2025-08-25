@@ -53,6 +53,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
@@ -101,8 +102,6 @@ class ExerciseActivity : ComponentActivity() {
     private lateinit var textToSpeech: TextToSpeech
     private lateinit var toneGen: ToneGenerator
     val bigText = TextStyle(fontSize = 36.sp)
-    val mediumText = TextStyle(fontSize = 28.sp)
-    val hugeText = TextStyle(fontSize = 96.sp)
     val phaseColor
         get() = when {
             workInfo.isPreparation -> Color(0xFFFFF176) // жёлтый
@@ -329,6 +328,7 @@ class ExerciseActivity : ComponentActivity() {
     @Composable
     private fun VerticalLayout(
         boxModifierFactory: () -> Modifier,
+        @Suppress("unused")
         getBoxWidthPx: () -> Int,
     ) {
         val showMuteIcon by viewModel.showMuteIcon.collectAsState()
@@ -391,9 +391,12 @@ class ExerciseActivity : ComponentActivity() {
                 showOff = !showOff
             },
         ) {
+            val context = LocalContext.current
             Icon(
                 imageVector = if (showOff) Icons.AutoMirrored.Outlined.VolumeUp else Icons.AutoMirrored.Outlined.VolumeOff,
-                contentDescription = if (showOff) "Включить звук" else "Выключить звук",
+                contentDescription = if (showOff) context.getString(R.string.sound_on) else context.getString(
+                    R.string.sound_off
+                ),
                 tint = Color.DarkGray,
                 modifier = Modifier.size(48.dp)
             )
@@ -404,18 +407,30 @@ class ExerciseActivity : ComponentActivity() {
     private fun TimerView() {
         val workInfo by viewModel.workInfo.collectAsState()
         val timeLeft by viewModel.timeLeft.collectAsState()
-        val density = androidx.compose.ui.platform.LocalDensity.current
         val orientation = resources.configuration.orientation
         if (workInfo.isFinished) {
-            Text(
-                text = "Упражнение завершено",
-                color = Color.Red,
-                style = bigText,
-                modifier = Modifier.wrapContentSize(Alignment.Center)
-            )
-            return
-        }
-        if (orientation == ORIENTATION_LANDSCAPE) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .systemBarsPadding(),
+
+
+                ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = getString(R.string.exercise_finished),
+                        color = Color.Red,
+                        style = bigText,
+                        modifier = Modifier.wrapContentSize(Alignment.Center)
+                    )
+                }
+            }
+        } else if (orientation == ORIENTATION_LANDSCAPE) {
             TimerViewHorizontal(workInfo, timeLeft)
         } else {
             TimerViewVertical(workInfo, timeLeft)
@@ -427,12 +442,13 @@ class ExerciseActivity : ComponentActivity() {
         Box(modifier = Modifier.fillMaxSize()) {
             Column(modifier = Modifier.fillMaxSize()) {
                 // Верхняя часть: "подходы" и "повторения" рядом
-                var upperBoxHeightPx by remember { mutableStateOf(0) }
-                var setLabelWidthPx by remember { mutableStateOf(0) }
-                var repLabelWidthPx by remember { mutableStateOf(0) }
-                val setLabel = "Подходы"
-                val repLabel = "Повторения"
-                var labelFontSizeSp: Float = 0f
+                var upperBoxHeightPx by remember { mutableIntStateOf(0) }
+                var setLabelWidthPx by remember { mutableIntStateOf(0) }
+                var repLabelWidthPx by remember { mutableIntStateOf(0) }
+                val context = LocalContext.current
+                val setLabel = context.getString(R.string.sets_label)
+                val repLabel = context.getString(R.string.reps_label)
+                var labelFontSizeSp = 0f
                 // Виджет с числом подходов и повторений
                 Box(
                     modifier = Modifier
@@ -531,7 +547,7 @@ class ExerciseActivity : ComponentActivity() {
                     }
                 }
                 // Нижняя часть: таймер
-                var lowerBoxHeightPx by remember { mutableStateOf(0) }
+                var lowerBoxHeightPx by remember { mutableIntStateOf(0) }
                 Box(
                     modifier = Modifier
                         .weight(1.5f)
@@ -543,15 +559,16 @@ class ExerciseActivity : ComponentActivity() {
                 ) {
                     val density = LocalDensity.current
                     val timerFontSizeSp = with(density) { (lowerBoxHeightPx * 0.8f).toSp() }
-                    Column (
+                    Column(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
                     ) {
+                        val context = LocalContext.current
                         Text(
-                            text = if (workInfo.isPreparation) "Подготовка"
-                            else if (workInfo.isRest) "Отдых"
-                            else "Работаем",
+                            text = if (workInfo.isPreparation) context.getString(R.string.preparation)
+                            else if (workInfo.isRest) context.getString(R.string.rest)
+                            else context.getString(R.string.work),
                             fontSize = labelFontSizeSp.sp,
                             color = Color.Gray,
                             modifier = Modifier.align(Alignment.CenterHorizontally)
@@ -571,9 +588,9 @@ class ExerciseActivity : ComponentActivity() {
 
     // Вспомогательная функция для вычисления максимального размера шрифта
     private fun calculateMaxFontSizeSp(text: String, boxWidthPx: Int, density: Density): Float {
-        val coeff = 0.6f
+        val factor = 0.6f
         val maxFontSizePx =
-            if (text.isNotEmpty() && boxWidthPx > 0) boxWidthPx / (text.length * coeff) else 12f
+            if (text.isNotEmpty() && boxWidthPx > 0) boxWidthPx / (text.length * factor) else 12f
         return with(density) { maxFontSizePx.toSp().value }
     }
 
@@ -582,7 +599,14 @@ class ExerciseActivity : ComponentActivity() {
         Box(modifier = Modifier.fillMaxSize()) {
             Row(modifier = Modifier.fillMaxSize()) {
                 // --- Три секции: подходы, повторения, таймер ---
-                val labels = listOf("Подходы", "Повторения", if (workInfo.isPreparation) "Подготовка" else if (workInfo.isRest) "Отдых" else "Работаем")
+                val context = LocalContext.current
+                val labels = listOf(
+                    context.getString(R.string.sets_label),
+                    context.getString(R.string.reps_label),
+                    if (workInfo.isPreparation) context.getString(R.string.preparation) else if (workInfo.isRest) context.getString(
+                        R.string.rest
+                    ) else context.getString(R.string.work)
+                )
                 val values = listOf(
                     (paramSetNumber - workInfo.currentSet + 1).toString(),
                     (paramRepNumber - workInfo.currentRep + 1).toString(),
@@ -618,7 +642,9 @@ class ExerciseActivity : ComponentActivity() {
                                 maxLines = 1
                             )
                             Spacer(modifier = Modifier.height(8.dp))
-                            val valueFontSizeSp = with(density) { (sectionWidthsPx.value.getOrNull(i)?.times(0.95f) ?: 48f).toSp() }
+                            val valueFontSizeSp = with(density) {
+                                (sectionWidthsPx.value.getOrNull(i)?.times(0.95f) ?: 48f).toSp()
+                            }
                             Text(
                                 text = values[i],
                                 fontFamily = digitalFont,
@@ -641,9 +667,10 @@ class ExerciseActivity : ComponentActivity() {
                 skipForwardBackward(true)
             },
         ) {
+            val context = LocalContext.current
             Icon(
                 imageVector = Icons.Outlined.SkipNext,
-                contentDescription = "Вперёд",
+                contentDescription = context.getString(R.string.forward),
                 tint = Color.DarkGray,
                 modifier = Modifier.size(skipIconSize)
             )
@@ -662,17 +689,18 @@ class ExerciseActivity : ComponentActivity() {
                 }
             }, modifier = Modifier.size(pauseSize)
         ) {
+            val context = LocalContext.current
             if (isPaused) {
                 Icon(
                     imageVector = Icons.Outlined.PlayArrow,
-                    contentDescription = "Воспроизведение",
+                    contentDescription = context.getString(R.string.play),
                     tint = Color.DarkGray,
                     modifier = Modifier.size(pauseSize)
                 )
             } else {
                 Icon(
                     imageVector = Icons.Outlined.Pause,
-                    contentDescription = "Пауза",
+                    contentDescription = context.getString(R.string.pause),
                     tint = Color.DarkGray,
                     modifier = Modifier.size(pauseSize)
                 )
@@ -701,7 +729,11 @@ class ExerciseActivity : ComponentActivity() {
     // Действия: отдых и упражнение
 
     fun speakTimeLeft() {
-        speak("Начинаем через $timeLeft секунд")
+//        speak("Начинаем через $timeLeft секунд")
+        val text = resources.getQuantityString(
+            R.plurals.start_in_seconds,
+            timeLeft, timeLeft)
+        speak(text)
     }
 
     /**
@@ -712,7 +744,10 @@ class ExerciseActivity : ComponentActivity() {
     suspend fun doRest() {
         if (!isPreparation && timeLeft == paramRestSeconds) {
             // Если это не подготовка, то говорим о начале отдыха
-            speak("Отдых $paramRestSeconds секунд")
+            val message = resources.getQuantityString(R.plurals.rest_for_seconds,
+                paramRestSeconds, paramRestSeconds)
+            speak(message)
+//            speak("Отдых $paramRestSeconds секунд")
         }
         // var timeLeft = viewModel.timeLeft
         while (timeLeft > 0) {
@@ -805,7 +840,8 @@ class ExerciseActivity : ComponentActivity() {
         if (workInfo.isLastRep()) {
             toneGen.startTone(TONE_CDMA_ALERT_CALL_GUARD, 500)
             if (workInfo.isVeryLastRep()) {
-                speak("Упражнение завершено")
+//                val context = LocalContext.current
+                speak(this.getString(R.string.exercise_finished))
             }
         }
         return updateWorkAndTimeLeft()

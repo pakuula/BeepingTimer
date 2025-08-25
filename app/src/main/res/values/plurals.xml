@@ -1,0 +1,10 @@
+<resources>
+    <plurals name="start_in_seconds">
+        <item quantity="one">Starting in %d second</item>
+        <item quantity="other">Starting in %d seconds</item>
+    </plurals>
+    <plurals name="rest_for_seconds">
+        <item quantity="one">Rest for %d second</item>
+        <item quantity="other">Rest for %d seconds</item>
+    </plurals>
+</resources>

@@ -1,6 +1,5 @@
 package me.pakuula.beeper
 
-import android.util.Log
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -28,6 +27,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -58,10 +58,10 @@ data class TimerPreset(
 @Composable
 fun TimerPresetWidget(
     preset: TimerPreset,
+    title: String = preset.title,
     onStart: (TimerPreset) -> Unit,
     onEdit: (TimerPreset) -> Unit = {}
 ) {
-    Log.i("EditLog", "TimerPresetWidget called for ${preset.title}")
     var expanded by remember { mutableStateOf(false) }
     Card(
         modifier = Modifier
@@ -76,7 +76,7 @@ fun TimerPresetWidget(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
-                    text = preset.title,
+                    text = title,
                     fontSize = 24.sp,
                     modifier = Modifier
                         .weight(1f)
@@ -91,10 +91,10 @@ fun TimerPresetWidget(
             }
             if (expanded) {
                 Spacer(modifier = Modifier.height(8.dp))
-                Text("Одно повторение: ${preset.secondsPerRep} сек")
-                Text("Число повторений: ${preset.reps}")
-                Text("Число подходов: ${preset.sets}")
-                Text("Отдых: ${preset.restSeconds} сек")
+                Text(stringResource(R.string.timer_widget_rep_duration, preset.secondsPerRep))
+                Text(stringResource(R.string.timer_widget_rep_number, preset.reps))
+                Text(stringResource(R.string.timer_widget_set_number, preset.sets))
+                Text(stringResource(R.string.timer_widget_res_sec, preset.restSeconds))
                 Spacer(modifier = Modifier.height(16.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),

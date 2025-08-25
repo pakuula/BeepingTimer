@@ -1,0 +1,55 @@
+<resources>
+    <string name="app_name">Таймер для тренажерного зала</string>
+    <string name="sound_on">Включить звук</string>
+    <string name="sound_off">Выключить звук</string>
+    <string name="exercise_finished">Упражнение завершено</string>
+    <string name="sets_label">Подходы</string>
+    <string name="reps_label">Повторения</string>
+    <string name="preparation">Подготовка</string>
+    <string name="rest">Отдых</string>
+    <string name="work">Работаем</string>
+    <string name="forward">Вперёд</string>
+    <string name="play">Воспроизведение</string>
+    <string name="pause">Пауза</string>
+    <string name="settings">Настройки</string>
+    <string name="add_timer">Добавить таймер</string>
+    <string name="sec_short">сек</string>
+    <string name="timer_widget_rep_duration">Одно повторение: %1$d сек</string>
+    <string name="timer_widget_rep_number">Число повторений: %1$d</string>
+    <string name="timer_widget_set_number">Число подходов: %1$d</string>
+    <string name="timer_widget_res_sec">Отдых: %1$d сек</string>
+    <string name="settings_volume">Громкость звуковых сигналов</string>
+    <string name="settings_timer_settings">Настройки таймера</string>
+    <string name="settings_expand">Развернуть</string>
+    <string name="settings_collapse">Свернуть</string>
+    <string name="settings_preparation_time">Время на подготовку к тренировке</string>
+    <string name="settings_beeps_before_start">Количество бипов перед началом тренировки</string>
+    <string name="settings_beeps_before_set">Количество бипов перед началом подхода</string>
+    <string name="settings_text_to_speech_settings">Настройки синтезатора речи</string>
+    <string name="settings_off">Отключено</string>
+    <string name="settings_on">Включено</string>
+    <string name="settings_language">Язык приложения</string>
+    <string name="settings_language_label">Язык</string>
+    <string name="settings_tts_language">Голос синтезатора речи</string>
+    <string name="settings_tts_language_label">Голос</string>
+    <string name="settings_reps_in_reverse_order">Отсчёт повторов в обратном порядке</string>
+    <string name="save">Сохранить</string>
+    <string name="edit_timer_new">Создание таймера</string>
+    <string name="edit_timer_edit">Редактирование таймера</string>
+    <string name="edit_timer_title">Название таймера</string>
+    <string name="edit_timer_repetition_time">Длительность повторения:</string>
+    <string name="edit_timer_rep_number">Количество повторений:</string>
+    <string name="edit_timer_rest_seconds">Длительность отдыха:</string>
+    <string name="edit_timer_set_number">Количество подходов:</string>
+    <string name="edit_timer_unique_title_error">Имя таймера должно быть уникальным!</string>
+    <string name="delete">Удалить</string>
+    <string name="delete_timer_question">Удалить таймер?</string>
+    <string name="delete_timer_question2">Вы уверены, что хотите удалить таймер \"%1$s\"?</string>
+    <string name="cancel">Отмена</string>
+    <string name="menu">Меню</string>
+    <string name="timer">Таймер</string>
+    <string name="no_timers">Нет таймеров</string>
+    <string name="settings_tts_enable">Включить голосовые сообщения</string>
+
+</resources>
+

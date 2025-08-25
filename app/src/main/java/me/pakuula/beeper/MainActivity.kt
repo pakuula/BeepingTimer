@@ -4,7 +4,6 @@ package me.pakuula.beeper
 
 import android.content.Intent
 import android.os.Bundle
-import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -57,6 +56,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
@@ -68,40 +68,15 @@ import androidx.navigation.navArgument
 import me.pakuula.beeper.theme.BeeperTheme
 import java.util.UUID
 
-@Composable
-fun TimerList(
-    timers: List<TimerPreset>,
-    onPresetClick: (TimerPreset) -> Unit,
-    onEdit: (TimerPreset) -> Unit
-) {
-    if (timers.isEmpty()) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            Text(
-                text = "Нет таймеров",
-                modifier = Modifier.align(Alignment.Center),
-                fontSize = 20.sp
-            )
-        }
-    } else {
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(WindowInsets.statusBars.asPaddingValues())
-                .padding(16.dp)
-        ) {
-            items(timers, key = { it.id }) { preset ->
-                TimerPresetWidget(
-                    preset = preset,
-                    onStart = { onPresetClick(it) },
-                    onEdit = onEdit
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-            }
-        }
-    }
-}
-
 class MainActivity : ComponentActivity() {
+    fun TimerPreset.getTitle(): String {
+        if (this.title.isNotBlank()) return this.title
+
+        val secString = getString(R.string.sec_short)
+
+        return "${this.sets} x ${this.reps} x ${this.secondsPerRep} $secString / ${this.restSeconds} $secString"
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -116,7 +91,7 @@ class MainActivity : ComponentActivity() {
                     reps = 8,
                     restSeconds = 40,
                     sets = 4
-                ).withDefaultName(),
+                ),
                 TimerPreset(
                     id = UUID.randomUUID().toString(),
                     title = "",
@@ -124,7 +99,7 @@ class MainActivity : ComponentActivity() {
                     reps = 6,
                     restSeconds = 40,
                     sets = 4
-                ).withDefaultName(),
+                ),
                 TimerPreset(
                     id = UUID.randomUUID().toString(),
                     title = "",
@@ -132,7 +107,7 @@ class MainActivity : ComponentActivity() {
                     reps = 8,
                     restSeconds = 8,
                     sets = 8
-                ).withDefaultName(),
+                ),
                 TimerPreset(
                     id = UUID.randomUUID().toString(),
                     title = "",
@@ -140,13 +115,12 @@ class MainActivity : ComponentActivity() {
                     reps = 6,
                     restSeconds = 8,
                     sets = 8
-                ).withDefaultName()
+                )
             )
             TimerStorage.saveTimers(this, defaultTimers)
         }
         setContent {
             BeeperTheme {
-                Log.i("EditLog", "setContent called")
                 val timers = remember { mutableStateListOf<TimerPreset>() }
                 val navController = rememberNavController()
                 // Загрузка таймеров из конфигурации
@@ -168,9 +142,15 @@ class MainActivity : ComponentActivity() {
                                             this@MainActivity,
                                             ExerciseActivity::class.java
                                         ).apply {
-                                            putExtra(ExerciseActivity.SECONDS_PER_REP_KEY, preset.secondsPerRep)
+                                            putExtra(
+                                                ExerciseActivity.SECONDS_PER_REP_KEY,
+                                                preset.secondsPerRep
+                                            )
                                             putExtra(ExerciseActivity.REPS_KEY, preset.reps)
-                                            putExtra(ExerciseActivity.REST_SECONDS_KEY, preset.restSeconds)
+                                            putExtra(
+                                                ExerciseActivity.REST_SECONDS_KEY,
+                                                preset.restSeconds
+                                            )
                                             putExtra(ExerciseActivity.SETS_KEY, preset.sets)
                                         }
                                         startActivity(intent)
@@ -194,7 +174,7 @@ class MainActivity : ComponentActivity() {
                                     ) {
                                         Icon(
                                             Icons.Default.MoreVert,
-                                            contentDescription = "Меню",
+                                            contentDescription = stringResource(R.string.menu),
                                             tint = Color.White
                                         )
                                     }
@@ -211,7 +191,7 @@ class MainActivity : ComponentActivity() {
                                                 ) {
                                                     Icon(
                                                         imageVector = Icons.Default.Add,
-                                                        contentDescription = "Добавить таймер",
+                                                        contentDescription = stringResource(R.string.add_timer),
                                                         modifier = Modifier.size(32.dp)
                                                     )
                                                 }
@@ -229,7 +209,7 @@ class MainActivity : ComponentActivity() {
                                                 ) {
                                                     Icon(
                                                         imageVector = Icons.Default.Settings,
-                                                        contentDescription = "Настройки",
+                                                        contentDescription = stringResource(R.string.settings),
                                                         modifier = Modifier.size(32.dp)
                                                     )
                                                 }
@@ -278,7 +258,8 @@ class MainActivity : ComponentActivity() {
                         }
                         // add новый таймер
                         composable("add") {
-                            val defaultName = "Таймер ${timers.size + 1}"
+                            val timerText = stringResource(R.string.timer)
+                            val defaultName = "$timerText ${timers.size + 1}"
                             val defaultPreset = TimerPreset(
                                 id = UUID.randomUUID().toString(),
                                 title = defaultName,
@@ -320,6 +301,40 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    @Composable
+    fun TimerList(
+        timers: List<TimerPreset>,
+        onPresetClick: (TimerPreset) -> Unit,
+        onEdit: (TimerPreset) -> Unit
+    ) {
+        if (timers.isEmpty()) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                Text(
+                    text = stringResource(R.string.no_timers),
+                    modifier = Modifier.align(Alignment.Center),
+                    fontSize = 20.sp
+                )
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(WindowInsets.statusBars.asPaddingValues())
+                    .padding(16.dp)
+            ) {
+                items(timers, key = { it.id }) { preset ->
+                    TimerPresetWidget(
+                        preset = preset,
+                        title = preset.getTitle(),
+                        onStart = { onPresetClick(it) },
+                        onEdit = onEdit
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+            }
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -351,7 +366,7 @@ fun SettingsScreen(
     ) {
         LazyColumn(modifier = Modifier.fillMaxSize()) {
             item {
-                Text("Громкость звуковых сигналов", fontSize = 16.sp)
+                Text(stringResource(R.string.settings_volume), fontSize = 16.sp)
                 Slider(
                     value = volume,
                     onValueChange = { volume = it },
@@ -372,31 +387,49 @@ fun SettingsScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("Настройки таймера", fontSize = 20.sp, modifier = Modifier.weight(1f))
-                            IconButton(onClick = { timerSettingsExpanded = !timerSettingsExpanded }) {
+                            Text(
+                                stringResource(R.string.settings_timer_settings),
+                                fontSize = 20.sp,
+                                modifier = Modifier.weight(1f)
+                            )
+                            IconButton(onClick = {
+                                timerSettingsExpanded = !timerSettingsExpanded
+                            }) {
                                 Icon(
                                     imageVector = if (timerSettingsExpanded) Icons.Default.ArrowDropDown else Icons.Default.Add,
-                                    contentDescription = if (timerSettingsExpanded) "Свернуть" else "Развернуть"
+                                    contentDescription =
+                                        if (timerSettingsExpanded) stringResource(R.string.settings_collapse)
+                                        else stringResource(R.string.settings_expand)
                                 )
                             }
                         }
                         if (timerSettingsExpanded) {
                             Spacer(modifier = Modifier.height(8.dp))
-                            Text("Время на подготовку к тренировке", fontSize = 16.sp)
+                            Text(
+                                stringResource(R.string.settings_preparation_time),
+                                fontSize = 16.sp
+                            )
                             Slider(
                                 value = prepTime.toFloat(),
                                 onValueChange = { prepTime = it.toInt() },
                                 valueRange = 0f..60f
                             )
-                            Text("$prepTime сек", fontSize = 14.sp)
-                            Text("Количество бипов перед началом тренировки", fontSize = 16.sp)
+                            val sec = stringResource(R.string.sec_short)
+                            Text("$prepTime $sec", fontSize = 14.sp)
+                            Text(
+                                stringResource(R.string.settings_beeps_before_start),
+                                fontSize = 16.sp
+                            )
                             Slider(
                                 value = beepsBeforeStart.toFloat(),
                                 onValueChange = { beepsBeforeStart = it.toInt() },
                                 valueRange = 0f..10f
                             )
                             Text("$beepsBeforeStart", fontSize = 14.sp)
-                            Text("Количество бипов перед началом подхода", fontSize = 16.sp)
+                            Text(
+                                stringResource(R.string.settings_beeps_before_set),
+                                fontSize = 16.sp
+                            )
                             Slider(
                                 value = beepsBeforeSet.toFloat(),
                                 onValueChange = { beepsBeforeSet = it.toInt() },
@@ -420,33 +453,49 @@ fun SettingsScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("Настройки синтезатора речи", fontSize = 20.sp, modifier = Modifier.weight(1f))
+                            Text(
+                                stringResource(R.string.settings_text_to_speech_settings),
+                                fontSize = 20.sp,
+                                modifier = Modifier.weight(1f)
+                            )
                             IconButton(onClick = { ttsSettingsExpanded = !ttsSettingsExpanded }) {
                                 Icon(
                                     imageVector = if (ttsSettingsExpanded) Icons.Default.ArrowDropDown else Icons.Default.Add,
-                                    contentDescription = if (ttsSettingsExpanded) "Свернуть" else "Развернуть"
+                                    contentDescription =
+                                        if (ttsSettingsExpanded) stringResource(R.string.settings_collapse)
+                                        else stringResource(R.string.settings_expand)
                                 )
                             }
                         }
                         if (ttsSettingsExpanded) {
                             Spacer(modifier = Modifier.height(8.dp))
-                            Text("Включить голосовые сообщения", fontSize = 16.sp)
+                            Text(stringResource(R.string.settings_tts_enable), fontSize = 16.sp)
                             androidx.compose.material3.Switch(
                                 checked = !mute,
                                 onCheckedChange = { mute = !it }
                             )
-                            Text(if (mute) "Отключено" else "Включено", fontSize = 14.sp)
-                            Text("Язык приложения", fontSize = 16.sp)
+                            Text(
+                                text = if (mute) stringResource(R.string.settings_off)
+                                else stringResource(R.string.settings_on),
+                                fontSize = 14.sp
+                            )
+                            Text(stringResource(R.string.settings_language), fontSize = 16.sp)
                             ExposedDropdownMenuBox(
                                 expanded = languageExpanded && !mute,
-                                onExpandedChange = { languageExpanded = if (mute) false else !languageExpanded }
+                                onExpandedChange = {
+                                    languageExpanded = if (mute) false else !languageExpanded
+                                }
                             ) {
                                 OutlinedTextField(
                                     value = selectedLanguage,
                                     onValueChange = {},
                                     readOnly = true,
-                                    label = { Text("Язык") },
-                                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = languageExpanded) },
+                                    label = { Text(stringResource(R.string.settings_language_label)) },
+                                    trailingIcon = {
+                                        ExposedDropdownMenuDefaults.TrailingIcon(
+                                            expanded = languageExpanded
+                                        )
+                                    },
                                     modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable)
                                 )
                                 DropdownMenu(
@@ -464,17 +513,23 @@ fun SettingsScreen(
                                     }
                                 }
                             }
-                            Text("Голос синтезатора речи", fontSize = 16.sp)
+                            Text(stringResource(R.string.settings_tts_language), fontSize = 16.sp)
                             ExposedDropdownMenuBox(
                                 expanded = voiceExpanded && !mute,
-                                onExpandedChange = { voiceExpanded = if (mute) false else !voiceExpanded }
+                                onExpandedChange = {
+                                    voiceExpanded = if (mute) false else !voiceExpanded
+                                }
                             ) {
                                 OutlinedTextField(
                                     value = selectedVoice,
                                     onValueChange = {},
                                     readOnly = true,
-                                    label = { Text("Голос") },
-                                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = voiceExpanded) },
+                                    label = { Text(stringResource(R.string.settings_tts_language_label)) },
+                                    trailingIcon = {
+                                        ExposedDropdownMenuDefaults.TrailingIcon(
+                                            expanded = voiceExpanded
+                                        )
+                                    },
                                     modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable)
                                 )
                                 DropdownMenu(
@@ -492,13 +547,17 @@ fun SettingsScreen(
                                     }
                                 }
                             }
-                            Text("Отсчёт повторов в обратном порядке", fontSize = 16.sp)
+                            Text(stringResource(R.string.settings_reps_in_reverse_order), fontSize = 16.sp)
                             androidx.compose.material3.Switch(
                                 checked = reverseRepCount,
                                 enabled = !mute,
                                 onCheckedChange = { reverseRepCount = it }
                             )
-                            Text(if (reverseRepCount) "Включено" else "Выключено", fontSize = 14.sp)
+                            Text(
+                                text = if (reverseRepCount) stringResource(R.string.settings_on)
+                                else stringResource(R.string.settings_off),
+                                fontSize = 14.sp
+                            )
                         }
                     }
                 }
@@ -519,7 +578,7 @@ fun SettingsScreen(
                         )
                     )
                 }) {
-                    Text("Сохранить", fontSize = 18.sp)
+                    Text(stringResource(R.string.save), fontSize = 18.sp)
                 }
             }
         }

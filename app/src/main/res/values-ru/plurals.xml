@@ -1,0 +1,14 @@
+<resources>
+    <plurals name="start_in_seconds">
+        <item quantity="one">Начинаем через %d секунду</item>
+        <item quantity="few">Начинаем через %d секунды</item>
+        <item quantity="many">Начинаем через %d секунд</item>
+        <item quantity="other">Начинаем через %d секунд</item>
+    </plurals>
+    <plurals name="rest_for_seconds">
+        <item quantity="one">Отдых %d секунду</item>
+        <item quantity="few">Отдых %d секунды</item>
+        <item quantity="many">Отдых %d секунд</item>
+        <item quantity="other">Отдых %d секунд</item>
+    </plurals>
+</resources>
