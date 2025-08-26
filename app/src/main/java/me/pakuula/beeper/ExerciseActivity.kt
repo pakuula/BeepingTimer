@@ -55,6 +55,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
@@ -328,7 +329,6 @@ class ExerciseActivity : ComponentActivity() {
     @Composable
     private fun VerticalLayout(
         boxModifierFactory: () -> Modifier,
-        @Suppress("unused")
         getBoxWidthPx: () -> Int,
     ) {
         val showMuteIcon by viewModel.showMuteIcon.collectAsState()
@@ -443,11 +443,20 @@ class ExerciseActivity : ComponentActivity() {
             Column(modifier = Modifier.fillMaxSize()) {
                 // Верхняя часть: "подходы" и "повторения" рядом
                 var upperBoxHeightPx by remember { mutableIntStateOf(0) }
+
                 var setLabelWidthPx by remember { mutableIntStateOf(0) }
                 var repLabelWidthPx by remember { mutableIntStateOf(0) }
-                val context = LocalContext.current
-                val setLabel = context.getString(R.string.sets_label)
-                val repLabel = context.getString(R.string.reps_label)
+                var phaseLabelWidthPx by remember { mutableIntStateOf(0) }
+
+                val setLabel = stringResource(R.string.sets_label)
+                val repLabel = stringResource(R.string.reps_label)
+                val longestPhaseLabel = listOf(
+                    stringResource(R.string.preparation),
+                    stringResource(R.string.rest),
+                    stringResource(R.string.work)
+                ).maxByOrNull { it.length } ?: ""
+
+
                 var labelFontSizeSp = 0f
                 // Виджет с числом подходов и повторений
                 Box(
@@ -494,6 +503,17 @@ class ExerciseActivity : ComponentActivity() {
                             // пусто, только для измерения ширины
                         }
                     }
+                    // Добавляем ширину для надписи фазы, чтобы шрифт не был слишком большим
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(0.dp) // невидимый
+                            .onGloballyPositioned { coordinates ->
+                                phaseLabelWidthPx = coordinates.size.width
+                            }
+                    ) {
+                        // пусто, только для измерения ширины
+                    }
                     // Вычисляем максимальный размер шрифта для надписей
                     val setLabelFontSizeSp = remember(setLabelWidthPx) {
                         calculateMaxFontSizeSp(setLabel, setLabelWidthPx, density)
@@ -501,7 +521,10 @@ class ExerciseActivity : ComponentActivity() {
                     val repLabelFontSizeSp = remember(repLabelWidthPx) {
                         calculateMaxFontSizeSp(repLabel, repLabelWidthPx, density)
                     }
-                    labelFontSizeSp = minOf(setLabelFontSizeSp, repLabelFontSizeSp)
+                    val phaseLabelFontSizeSp = remember(phaseLabelWidthPx) {
+                        calculateMaxFontSizeSp(longestPhaseLabel, phaseLabelWidthPx, density)
+                    }
+                    labelFontSizeSp = minOf(setLabelFontSizeSp, repLabelFontSizeSp, phaseLabelFontSizeSp)
                     // Отрисовываем надписи и цифры
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -600,6 +623,12 @@ class ExerciseActivity : ComponentActivity() {
             Row(modifier = Modifier.fillMaxSize()) {
                 // --- Три секции: подходы, повторения, таймер ---
                 val context = LocalContext.current
+                val longestPhaseLabel = listOf(
+                    stringResource(R.string.preparation),
+                    stringResource(R.string.rest),
+                    stringResource(R.string.work)
+                ).maxByOrNull { it.length } ?: ""
+
                 val labels = listOf(
                     context.getString(R.string.sets_label),
                     context.getString(R.string.reps_label),
@@ -607,6 +636,7 @@ class ExerciseActivity : ComponentActivity() {
                         R.string.rest
                     ) else context.getString(R.string.work)
                 )
+                val longestLabels = labels.subList(0, 2) + longestPhaseLabel
                 val values = listOf(
                     (paramSetNumber - workInfo.currentSet + 1).toString(),
                     (paramRepNumber - workInfo.currentRep + 1).toString(),
@@ -615,7 +645,7 @@ class ExerciseActivity : ComponentActivity() {
                 val sectionWidthsPx = remember { mutableStateOf(listOf(0, 0, 0)) }
                 val density = LocalDensity.current
                 // Вычисляем максимальный размер шрифта для подписей
-                val labelFontSizes = labels.mapIndexed { i, label ->
+                val labelFontSizes = longestLabels.mapIndexed { i, label ->
                     calculateMaxFontSizeSp(label, sectionWidthsPx.value.getOrNull(i) ?: 0, density)
                 }
                 val labelFontSizeSp = labelFontSizes.minOrNull() ?: 12f
